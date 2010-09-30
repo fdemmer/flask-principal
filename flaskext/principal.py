@@ -296,6 +296,11 @@ class Permission(object):
         """Create a new permission with the requirements of the union of this
         and other.
 
+        You can also use the **&** operator. The following are equivalent::
+
+            p = p1.union(p2)
+            p = p1 & p2
+
         :param other: The other permission
         """
         p = Permission(*self.needs.union(other.needs))
@@ -305,6 +310,11 @@ class Permission(object):
     def difference(self, other):
         """Create a new permission consisting of requirements in this 
         permission and not in the other.
+
+        You can also use the "|" operator. The following are equivalent::
+
+            p = p1.difference(p2)
+            p = p1 | p2
         """
 
         p = Permission(*self.needs.difference(other.needs))
@@ -313,6 +323,11 @@ class Permission(object):
 
     def issubset(self, other):
         """Whether this permission needs are a subset of another
+
+        You can also use the **in** operator. The following are equivalent::
+
+            assert p1.issubset(p2)
+            assert p1 in p2
 
         :param other: The other permission
         """
@@ -337,13 +352,38 @@ class Permission(object):
 
         This creates an identity context and tests whether it can access this
         permission
+
+        You can also check the permission directly. The following are 
+        equivalent::
+
+            assert permission.require().can()
+            assert permission            
         """
         return self.require().can()
 
 
 class Denial(Permission):
     """
-    Shortcut class for passing excluded needs.
+    Class for handling negative permissions. This is the same as a 
+    **Permission**, but is initialized with a given set of excludes rather
+    than needs.
+
+    Excludes are the same as needs (and use the same classes) but the
+    difference is that if an identity meets at least one need, they have
+    permission, while if they meet at least one exclude, they do not have
+    the permission.
+
+    You can combine a **Denial** and a **Permission** (or a **Denial** and 
+    another **Denial**) in the same way as a **Permission** and another 
+    **Permission**. For example::
+
+        p = Permission(RoleNeed('auth')) & Denial(UserNeed('me'))
+
+    The resulting **Permission** *p* would pass if the identity provided the 
+    **RoleNeed** 'auth' but would fail if the identity also provided the 
+    **UserNeed** 'me'.
+
+    :param excludes: The excludes for this permission
     """
 
     def __init__(self, *excludes):

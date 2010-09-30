@@ -88,8 +88,11 @@ The major components are the Identity, Needs, Permission, and the IdentityContex
 
     2. A Permission is a set of requirements, any of which should be
        present for access to a resource.
+
+    3. A Denial is a set of requirements, any of which may be present to deny
+       access to a resource.
        
-    3. An IdentityContext is the context of a certain identity against a certain
+    4. An IdentityContext is the context of a certain identity against a certain
        Permission. It can be used as a context manager, or a decorator.
 
 
@@ -163,6 +166,44 @@ example::
         for role in user.roles:
             identity.provides.add(RoleNeed(role.name))
 
+
+Object-level permissions
+------------------------
+
+A useful pattern is providing a set of permissions for individual domain
+classes. For example, suppose you have a class::
+
+    class BlogPost(object):
+
+        def __init__(self, title, author):
+            self.title = title
+            self.author = author
+
+You want to provide edit permissions if the following conditions are true:
+
+- the current user is a moderator
+- the current user is the author of the blog post
+
+The edit permission is provided as a property of **BlogPost**::
+
+        @property
+        def edit_permission(self):
+            return Permission(RoleNeed('moderator'),
+                              UserNeed(self.author.username))
+
+
+The post can now be checked for edit permissions in your view::
+
+    @app.route("/edit/<int:post_id>/")
+    def edit_post(post_id):
+
+        post = BlogPost.get(post_id)
+        post.edit_permission.test(403)
+
+In this case the view will raise a **403** HTTP error if the user is
+neither the author nor a moderator.
+
+
 API
 ===
 
@@ -179,6 +220,9 @@ Main Types
 ----------
 
 .. autoclass:: flaskext.principal.Permission
+    :members:
+    
+.. autoclass:: flaskext.principal.Denial
     :members:
 
 .. autoclass:: flaskext.principal.Identity
