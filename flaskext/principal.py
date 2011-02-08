@@ -6,6 +6,7 @@
     Identity management for Flask.
 
     :copyright: (c) 2010 by Ali Afshar.
+    :copyright: (c) 2011 by Pedro Algarvio.
     :license: MIT, see LICENSE for more details.
 
 """
@@ -15,7 +16,7 @@ from functools import partial, wraps
 from collections import namedtuple, deque
 
 
-from flask import g, session, current_app, abort
+from flask import g, session, current_app, abort, request
 from flask.signals import Namespace
 
 
@@ -242,7 +243,7 @@ class Permission(object):
         """Does the same thing as ``self.union(other)``
         """
         return self.union(other)
-    
+
     def __or__(self, other):
         """Does the same thing as ``self.difference(other)``
         """
@@ -260,7 +261,7 @@ class Permission(object):
 
         If ``http_exception`` is passed then ``abort()`` will be called
         with the HTTP exception code. Otherwise a ``PermissionDenied``
-        exception will be raised if the identity does not meet the 
+        exception will be raised if the identity does not meet the
         requirements.
 
         :param http_exception: the HTTP exception code (403, 401 etc)
@@ -269,7 +270,7 @@ class Permission(object):
 
     def test(self, http_exception=None):
         """
-        Checks if permission available and raises relevant exception 
+        Checks if permission available and raises relevant exception
         if not. This is useful if you just want to check permission
         without wrapping everything in a require() block.
 
@@ -281,10 +282,10 @@ class Permission(object):
 
         with self.require(http_exception):
             pass
-        
+
     def reverse(self):
         """
-        Returns reverse of current state (needs->excludes, excludes->needs) 
+        Returns reverse of current state (needs->excludes, excludes->needs)
         """
 
         p = Permission()
@@ -303,7 +304,7 @@ class Permission(object):
         return p
 
     def difference(self, other):
-        """Create a new permission consisting of requirements in this 
+        """Create a new permission consisting of requirements in this
         permission and not in the other.
         """
 
@@ -331,7 +332,7 @@ class Permission(object):
             return False
 
         return True
-       
+
     def can(self):
         """Whether the required context for this permission has access
 
@@ -370,12 +371,15 @@ class Principal(object):
     :param app: The flask application to extend
     :param use_sessions: Whether to use sessions to extract and store
                          identification.
+    :param skip_static: Skip triggering identity loaders and saver for the
+                        current app's static path
     """
-    def __init__(self, app=None, use_sessions=True):
+    def __init__(self, app=None, use_sessions=True, skip_static=False):
         self.identity_loaders = deque()
         self.identity_savers = deque()
         # XXX This will probably vanish for a better API
         self.use_sessions = use_sessions
+        self.skip_static = skip_static
         if app is not None:
             self._init_app(app)
 
@@ -392,6 +396,10 @@ class Principal(object):
 
         :param identity: The identity to set
         """
+        if self.skip_static and \
+                            request.path.startswith(current_app.static_path):
+            return
+
         self._set_thread_identity(identity)
         for saver in self.identity_savers:
             saver(identity)
@@ -443,6 +451,9 @@ class Principal(object):
         self.set_identity(identity)
 
     def _on_before_request(self):
+        if self.skip_static and \
+                            request.path.startswith(current_app.static_path):
+            return
         g.identity = AnonymousIdentity()
         for loader in self.identity_loaders:
             identity = loader()
