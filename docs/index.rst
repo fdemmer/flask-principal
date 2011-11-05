@@ -1,12 +1,10 @@
 
 Flask Principal
-===============
-
-*"I am that I am"*
+~~~~~~~~~~~~~~~
 
 
 Introduction
-------------
+============
 
 Flask-Principal provides a very loose framework to tie in providers of two
 types of service, often located in different parts of a web application:
@@ -18,7 +16,7 @@ For example, an authentication provider may be oauth, using Flask-OAuth and
 the user information may be stored in a relational database. Looseness of
 the framework is provided by using signals as the interface.
 
-The major components are the Identity, Needs, Permission, and the IdentityContext.
+The major components are the Identity, Needs, Permission, and the ResourceContext.
 
     1. The Identity represents the user, and is stored/loaded from various
        locations (eg session) for each request. The Identity is the user's
@@ -51,7 +49,7 @@ The major components are the Identity, Needs, Permission, and the IdentityContex
     3. A Denial is a set of requirements, any of which may be present to deny
        access to a resource.
        
-    4. An IdentityContext is the context of a certain identity against a certain
+    4. An ResourceContext is the context of a certain identity against a certain
        Permission. It can be used as a context manager, or a decorator.
 
 
@@ -65,7 +63,7 @@ The major components are the Identity, Needs, Permission, and the IdentityContex
         i [label="Identity", shape="circle" style="filled" width="1.5", fillcolor="1"] ;
         p [label="Permission", shape="circle" style="filled" width="1.5" fillcolor="2"] ;
         n [label="<all> Needs|{<n1>RoleNeed|<n2>ActionNeed}", shape="Mrecord" style="filled" fillcolor="3"] ;
-        c [label="IdentityContext", shape="box" style="filled,rounded" fillcolor="4"] ;
+        c [label="ResourceContext", shape="box" style="filled,rounded" fillcolor="4"] ;
         p -> n:all ;
         c -> i ;
         c -> p ;
@@ -74,17 +72,9 @@ The major components are the Identity, Needs, Permission, and the IdentityContex
 
     }
 
-.. automodule:: flaskext.principal
 
-
-
-
-
-Links
------
-
-* `documentation <http://packages.python.org/Flask-Principal/>`_
-* `source <http://bitbucket.org/aafshar/flask-principal-main>`_
+Usage examples
+==============
 
 
 Protecting access to resources
@@ -192,6 +182,11 @@ API
 ===
 
 
+.. module:: flaskext.principal
+
+.. automodule:: flaskext.principal
+
+
 
 Starting the extension
 ----------------------
@@ -215,7 +210,7 @@ Main Types
 .. autoclass:: flaskext.principal.AnonymousIdentity
     :members:
 
-.. autoclass:: flaskext.principal.IdentityContext
+.. autoclass:: flaskext.principal.ResourceContext
     :members:
 
 

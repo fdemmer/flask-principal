@@ -16,6 +16,7 @@ import sys, os
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.append(os.path.abspath('_themes'))
 
 # -- General configuration -----------------------------------------------------
@@ -96,7 +97,10 @@ html_theme = 'flask_small'
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-#html_theme_options = {}
+html_theme_options = {
+    'index_logo':       'flask-principal.png',
+    'github_fork':      'fdemmer/flask-principal'
+}
 
 # Add any paths that contain custom themes here, relative to this directory.
 html_theme_path = ['_themes']
