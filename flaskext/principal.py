@@ -6,7 +6,7 @@
     Identity management for Flask.
 
     :copyright: (c) 2010 by Ali Afshar, Dan Jacob, Raphaël Slinckx
-    :copyright: (c) 2011 by Pedro Algarvio.
+    :copyright: (c) 2011 by Pedro Algarvio, Florian Demmer.
     :license: MIT, see LICENSE for more details.
 
 """
@@ -177,22 +177,30 @@ class AnonymousIdentity(Identity):
         Identity.__init__(self, 'anonymous')
 
 
-class IdentityContext(object):
-    """The context of an identity for a permission.
-
-    .. note:: The principal is usually created by the flaskext.Permission.require method
-              call for normal use-cases.
-
-    The principal behaves as either a context manager or a decorator. The
-    permission is checked for provision in the identity, and if available the
-    flow is continued (context manager) or the function is executed (decorator).
+class ResourceContext(object):
+    """The context for examining whether the Identity has Permission.
+    
+    .. note:: The context is usually created by the Permission.required()
+              method and can be used as a context manager (``with`` statement)
+              or a decorator.
+    
+    The permission is checked for provision in the identity, and if available
+    the flow is continued (context manager) or the function is executed
+    (decorator), otherwise an appropriate exception is raised.
     """
 
-    def __init__(self, permission, http_exception=None):
-        self.permission = permission
-        self.http_exception = http_exception
-        """The permission of this principal
+    def __init__(self, permission, abort_with=None):
+        """...
+        
+        :attr permission:   The permission required to access the resource.
+        :attr abort_with:   A HTTP error code to use when aborting in case
+                            access is denied.
+                            This defaults to None, which raises a 
+                            PermissionDenied exception instead of calling 
+                            abort().
         """
+        self.permission = permission
+        self.abort_with = abort_with
 
     @property
     def identity(self):
@@ -221,9 +229,9 @@ class IdentityContext(object):
 
     def __enter__(self):
         # check the permission here
-        if not self.can():
-            if self.http_exception:
-                abort(self.http_exception, self.permission)
+        if not self.permission.allows(self.identity):
+            if self.abort_with is not None:
+                abort(self.abort_with, self.permission)
             raise PermissionDenied(self.permission)
 
     def __exit__(self, *exc):
@@ -266,7 +274,7 @@ class Permission(object):
         return other.issubset(self)
 
     def require(self, http_exception=None):
-        """Create an IdentityContext with this Permission.
+        """Create a ResourceContext with this Permission.
 
         It may be used as a context manager, or a decorator.
 
@@ -277,7 +285,7 @@ class Permission(object):
 
         :param http_exception: the HTTP exception code (403, 401 etc)
         """
-        return IdentityContext(self, http_exception)
+        return ResourceContext(self, http_exception)
 
     def test(self, http_exception=None):
         """
@@ -441,7 +449,7 @@ class Principal(object):
         for saver in self.identity_savers:
             saver(identity)
 
-    def identity_loader(self, f):
+    def identity_loader(self, func):
         """Decorator to define a function as an identity loader.
 
         An identity loader function is called before request to find any
@@ -457,10 +465,10 @@ class Principal(object):
             def load_identity_from_weird_usecase():
                 return Identity('ali')
         """
-        self.identity_loaders.appendleft(f)
-        return f
+        self.identity_loaders.appendleft(func)
+        return func
 
-    def identity_saver(self, f):
+    def identity_saver(self, func):
         """Decorator to define a function as an identity saver.
 
         An identity loader saver is called when the identity is set to persist
@@ -476,8 +484,8 @@ class Principal(object):
             def save_identity_to_weird_usecase(identity):
                 my_special_cookie['identity'] = identity
         """
-        self.identity_savers.appendleft(f)
-        return f
+        self.identity_savers.appendleft(func)
+        return func
 
     def session_loader(self, identity_by_uid_fn):
         """Decorator to enable session identity loading and saving.
