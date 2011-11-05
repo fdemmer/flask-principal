@@ -5,7 +5,7 @@
 
     Identity management for Flask.
 
-    :copyright: (c) 2010 by Ali Afshar.
+    :copyright: (c) 2010 by Ali Afshar, Dan Jacob, Raphaël Slinckx
     :license: MIT, see LICENSE for more details.
 
 """
@@ -49,15 +49,15 @@ identity_loaded = signals.signal('identity-loaded', doc=
 
 Actual name: ``identity-loaded``
 
-Identity information providers should connect to this signal to perform two
-major activities:
+Identity information providers can connect to this signal to perform two
+major activities (in addition to what the identity loader already may have done):
 
     1. Populate the identity object with the necessary authorization provisions.
     2. Load any additional user information.
 
 For example::
 
-    from flaskext.principal import indentity_loaded, RoleNeed, UserNeed
+    from flaskext.principal import identity_loaded, RoleNeed, UserNeed
 
     @identity_loaded.connect
     def on_identity_loaded(sender, identity):
@@ -66,7 +66,7 @@ For example::
         # Update the roles that a user can provide
         for role in user.roles:
             identity.provides.add(RoleNeed(role.name))
-        # Save the user somewhere so we only look it up once
+        # Save the user object in the Identity, so we only look it up once
         identity.user = user
 """)
 
@@ -90,7 +90,7 @@ RoleNeed.__doc__ = """A need with the method preset to `"role"`."""
 
 
 TypeNeed = partial(Need, 'type')
-TypeNeed.__doc__ = """A need with the method preset to `"role"`."""
+TypeNeed.__doc__ = """A need with the method preset to `"type"`."""
 
 
 ActionNeed = partial(Need, 'action')
@@ -118,9 +118,9 @@ class PermissionDenied(RuntimeError):
     """
 
 class Identity(object):
-    """Represent the user's identity.
+    """Represent the client's identity.
 
-    :param uid: The user identifier (name, id, ...)
+    :param uid: A unique identifier (the login name, an internal id, ...)
     :param user: The user object corresponding to that user identifier (made
                  available as `g.user`)
     :param auth_type: The authentication type used to confirm the user's
@@ -159,7 +159,8 @@ class Identity(object):
 
 
 class AnonymousIdentity(Identity):
-    """An anonymous identity
+    """The default Identity when no other is available. Uses "anon" as uid
+       and all other fields using defaults from the Identity class.
 
     :attr uid: `"anon"`
     :attr user: `None`
@@ -188,12 +189,13 @@ class IdentityContext(object):
 
     @property
     def identity(self):
-        """The identity of this principal
+        """
+        The Identity in this context, as stored in the Flask global ``g`` object.
         """
         return g.identity
 
     def can(self):
-        """Whether the identity has access to the permission
+        """Check if the Identity provides the Permission.
         """
         return self.identity.can(self.permission)
 
@@ -258,9 +260,9 @@ class Permission(object):
         return other.issubset(self)
 
     def require(self, http_exception=None):
-        """Create a principal for this permission.
+        """Create an IdentityContext with this Permission.
 
-        The principal may be used as a context manager, or a decroator.
+        It may be used as a context manager, or a decorator.
 
         If ``http_exception`` is passed then ``abort()`` will be called
         with the HTTP exception code. Otherwise a ``PermissionDenied``
@@ -339,7 +341,7 @@ class Permission(object):
                self.excludes.issubset(other.excludes)
 
     def allows(self, identity):
-        """Whether the identity can access this permission.
+        """Whether the Identity can access this Permission.
 
         :param identity: The identity
         """
@@ -396,7 +398,9 @@ class Denial(Permission):
 
 
 class Principal(object):
-    """Principal extension
+    """The Principal extension
+    
+    ... provides Identity loaders (and saver)
 
     :param app: The flask application to extend
     :param use_sessions: Whether to use sessions to extract and store
@@ -599,9 +603,13 @@ class Principal(object):
         self.set_identity(identity)
 
     def _on_before_request(self):
+        # loop through all registered loaders until...
         for loader in self.identity_loaders:
             identity = loader()
+            # one successfully loads an identity and ...
             if identity is not None:
+                # set it!
                 self.set_identity(identity)
                 return
+        # otherwise set the fallback/anonymous identity
         self.set_identity()
