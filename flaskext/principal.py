@@ -6,6 +6,7 @@
     Identity management for Flask.
 
     :copyright: (c) 2010 by Ali Afshar, Dan Jacob, Raphaël Slinckx
+    :copyright: (c) 2011 by Pedro Algarvio.
     :license: MIT, see LICENSE for more details.
 
 """
@@ -405,10 +406,13 @@ class Principal(object):
     :param app: The flask application to extend
     :param use_sessions: Whether to use sessions to extract and store
                          identification.
+    :param skip_static: Skip triggering identity loaders and saver for the
+                        current app's static path
     """
-    def __init__(self, app=None):
+    def __init__(self, app=None, skip_static=False):
         self.identity_loaders = deque()
         self.identity_savers = deque()
+        self.skip_static = skip_static
         if app is not None:
             self._init_app(app)
 
@@ -423,6 +427,10 @@ class Principal(object):
         """
         if identity is None:
             identity = AnonymousIdentity()
+
+        if self.skip_static and \
+            request.path.startswith(current_app.static_path):
+            return
 
         self._set_thread_identity(identity)
         for saver in self.identity_savers:
@@ -603,6 +611,9 @@ class Principal(object):
         self.set_identity(identity)
 
     def _on_before_request(self):
+        if self.skip_static and \
+            request.path.startswith(current_app.static_path):
+            return
         # loop through all registered loaders until...
         for loader in self.identity_loaders:
             identity = loader()
