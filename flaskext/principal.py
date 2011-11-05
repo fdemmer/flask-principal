@@ -31,7 +31,7 @@ identity_changed = signals.signal('identity-changed', doc=
 Actual name: ``identity-changed``
 
 Authentication providers should send this signal when authentication has been
-successfully performed. Flask-IdentityContext connects to this signal and causes the
+successfully performed. Principal connects to this signal and causes the
 identity to be saved in the session.
 
 For example::
@@ -66,7 +66,7 @@ For example::
         user = db.get(identity.name)
         # Update the roles that a user can provide
         for role in user.roles:
-            identity.provides.add(RoleNeed(role.name))
+            identity.provides(RoleNeed(role.name))
         # Save the user object in the Identity, so we only look it up once
         identity.user = user
 """)
@@ -134,8 +134,8 @@ class Identity(object):
     Once loaded it is sent using the `identity-loaded` signal, and should be
     populated with additional required information.
 
-    Needs that are provided by this identity should be added to the `provides`
-    set after loading.
+    Needs that are provided by this identity should be added using the
+    provides() function after loading.
     """
     def __init__(self, uid, user=None, auth_type=None):
         
@@ -147,14 +147,19 @@ class Identity(object):
         self.uid = uid
         self.user = user
         self.auth_type = auth_type
-
-        self.provides = set()
-        """A set of needs provided by this user
-
-        Provisions can be added using the `add` method, for example::
-
+        
+        self.provides = CallableSet()
+        """
+        Add one or more Needs, so that this Identity can provide them::
+            
             identity = Identity('ali')
-            identity.provides.add(('role', 'admin'))
+            identity.provides(RoleNeed('guest'))
+            identity.provides(('role', 'admin'), ('role', 'dba'))
+            
+        Is also used to access the provided Needs::
+        
+            needs.issubset(identity.provides)
+            
         """
 
     def can(self, permission):

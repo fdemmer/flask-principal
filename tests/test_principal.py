@@ -9,7 +9,7 @@ from flaskext.principal import Principal, Permission, Denial, RoleNeed, \
 
 def _on_principal_init(sender, identity):
     if identity.uid == 'ali':
-        identity.provides.add(RoleNeed('admin'))
+        identity.provides(RoleNeed('admin'))
 
 class ReraiseException(Exception):
     """For checking reraising"""
@@ -129,7 +129,7 @@ def mkapp():
 
     @app.route("/m")
     def m():
-        with admin_denied.require():
+        with admin_denied.required():
            pass 
             
         return Response("OK")
@@ -138,7 +138,7 @@ def mkapp():
     def n():
         i = mkadmin()
         identity_changed.send(app, identity=i)
-        with admin_denied.require():
+        with admin_denied.required():
             pass
 
         return Response("OK")
@@ -167,6 +167,29 @@ def mkapp():
 def mkadmin():
     i = Identity('ali', identity_users['ali'])
     return i
+
+def test_identity_creation():
+
+    i = Identity(1)
+    i.provides(RoleNeed('user'))
+    
+    assert i.provides == set([RoleNeed('user')])
+    
+    i.provides(RoleNeed('admin'), RoleNeed('operator'))
+    
+    assert i.provides == set([RoleNeed('user'), RoleNeed('admin'), 
+        RoleNeed('operator')])
+
+def test_identity_allowed():
+
+    p1 = Permission(RoleNeed('boss'), RoleNeed('lackey'))
+    p2 = Permission(RoleNeed('lackey'))
+    
+    i = Identity(1)
+    i.provides(RoleNeed('boss'))
+    
+    assert p1.allows(i) == True
+    assert p2.allows(i) == False
 
 def test_deny_with():
     client = mkapp().test_client()
