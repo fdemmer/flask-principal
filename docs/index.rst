@@ -182,12 +182,6 @@ API
 ===
 
 
-.. module:: flaskext.principal
-
-.. automodule:: flaskext.principal
-
-
-
 Starting the extension
 ----------------------
 
