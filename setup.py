@@ -1,5 +1,5 @@
 """
-Flask Principal
+Flask-Principal
 ---------------
 
 Identity management for Flask.
@@ -8,7 +8,8 @@ Links
 `````
 
 * `documentation <http://packages.python.org/Flask-Principal/>`_
-* `source <http://bitbucket.org/aafshar/flask-principal-main>`_
+* `development version
+  <https://github.com/fdemmer/flask-principal>`_
 
 """
 from setuptools import setup
@@ -21,14 +22,14 @@ setup(
     license='MIT',
     author='Ali Afshar',
     author_email='aafshar@gmail.com',
-    description='Identity management for flask',
+    description='Identity management for Flask',
     long_description=__doc__,
-    packages=['flaskext'],
-    namespace_packages=['flaskext'],
+    packages=['flask_principal'],
     zip_safe=False,
     platforms='any',
     install_requires=[
-        'Flask', 'blinker'
+        'Flask', 
+        'blinker', 
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
