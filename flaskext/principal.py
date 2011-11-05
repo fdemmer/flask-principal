@@ -247,7 +247,7 @@ class ResourceContext(object):
 
 
 class Permission(object):
-    """Represents needs, any of which must be present to access a resource
+    """A permission is a collection of "needs", any of which must be present to access a resource.
 
     :param needs: The needs for this permission
     """
@@ -278,7 +278,7 @@ class Permission(object):
         """
         return other.issubset(self)
 
-    def require(self, http_exception=None):
+    def required(self, http_exception=None):
         """Create a ResourceContext with this Permission.
 
         It may be used as a context manager, or a decorator.
@@ -296,15 +296,15 @@ class Permission(object):
         """
         Checks if permission available and raises relevant exception 
         if not. This is useful if you just want to check permission
-        without wrapping everything in a require() block.
+        without wrapping everything in a required() block.
 
         This is equivalent to::
 
-            with permission.require():
+            with permission.required():
                 pass
         """
 
-        with self.require(http_exception):
+        with self.required(http_exception):
             pass
         
     def reverse(self):
@@ -384,7 +384,7 @@ class Permission(object):
             assert permission.require().can()
             assert permission            
         """
-        return self.require().can()
+        return self.required().can()
 
 
 class Denial(Permission):
@@ -422,8 +422,6 @@ class Principal(object):
     ... provides Identity loaders (and saver)
 
     :param app: The flask application to extend
-    :param use_sessions: Whether to use sessions to extract and store
-                         identification.
     :param skip_static: Skip triggering identity loaders and saver for the
                         current app's static path
     """

@@ -50,27 +50,27 @@ def mkapp():
 
     @app.route('/')
     def index():
-        with admin_permission.require():
+        with admin_permission.required():
             pass
         return Response('hello')
 
     @app.route('/a')
-    @admin_permission.require()
+    @admin_permission.required()
     def a():
         return Response('hello')
 
     @app.route('/b')
-    @anon_permission.require()
+    @anon_permission.required()
     def b():
         return Response('hello')
 
     @app.route('/c')
     def c():
-        with anon_permission.require():
+        with anon_permission.required():
             raise ReraiseException
 
     @app.route('/d')
-    @anon_permission.require()
+    @anon_permission.required()
     def d():
         raise ReraiseException
 
@@ -78,19 +78,19 @@ def mkapp():
     def e():
         i = mkadmin()
         identity_changed.send(app, identity=i)
-        with admin_permission.require():
+        with admin_permission.required():
             return Response('hello')
 
     @app.route('/f')
     def f():
         i = mkadmin()
         identity_changed.send(app, identity=i)
-        with admin_or_editor.require():
+        with admin_or_editor.required():
             return Response('hello')
 
     @app.route('/g')
-    @admin_permission.require()
-    @editor_permission.require()
+    @admin_permission.required()
+    @editor_permission.required()
     def g_():
         return Response('hello')
 
@@ -98,20 +98,20 @@ def mkapp():
     def h():
         i = Identity('james', identity_users['james'])
         identity_changed.send(app, identity=i)
-        with admin_permission.require():
-            with editor_permission.require():
+        with admin_permission.required():
+            with editor_permission.required():
                 pass
     
     @app.route('/j')
     def j():
         i = Identity('james', identity_users['james'])
         identity_changed.send(app, identity=i)
-        with admin_permission.require(403):
-            with editor_permission.require(403):
+        with admin_permission.required(403):
+            with editor_permission.required(403):
                 pass
     
     @app.route('/k')
-    @admin_permission.require(403)
+    @admin_permission.required(403)
     def k():
         return Response('hello')
 
