@@ -278,21 +278,21 @@ class Permission(object):
         """
         return other.issubset(self)
 
-    def required(self, http_exception=None):
+    def required(self, abort_with=None):
         """Create a ResourceContext with this Permission.
 
         It may be used as a context manager, or a decorator.
 
-        If ``http_exception`` is passed then ``abort()`` will be called
+        If ``abort_with`` is passed then ``abort()`` will be called
         with the HTTP exception code. Otherwise a ``PermissionDenied``
         exception will be raised if the identity does not meet the 
         requirements.
 
-        :param http_exception: the HTTP exception code (403, 401 etc)
+        :param abort_with: the HTTP exception code (403, 401 etc) used to abort
         """
-        return ResourceContext(self, http_exception)
+        return ResourceContext(self, abort_with)
 
-    def test(self, http_exception=None):
+    def test(self, abort_with=None):
         """
         Checks if permission available and raises relevant exception 
         if not. This is useful if you just want to check permission
@@ -304,7 +304,7 @@ class Permission(object):
                 pass
         """
 
-        with self.required(http_exception):
+        with self.required(abort_with):
             pass
         
     def reverse(self):
