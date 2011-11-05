@@ -143,7 +143,6 @@ def mkapp():
 
         return Response("OK")
 
-    
     @app.route("/o")
     def o():
         admin_or_editor.test()
@@ -382,10 +381,10 @@ def test_form_loader_get_or_wrong():
     with client:
         response = client.open("/login", data={'login': 'ali', 'password': 'ali'})
         assert response.status_code == 200
-        assert g.identity.uid == 'anon'
+        assert g.identity.uid == 'anonymous'
         assert g.user is None
 
         response = client.post("/login", data={'login': 'ali', 'password': 'foo'})
         assert response.status_code == 200
-        assert g.identity.uid == 'anon'
+        assert g.identity.uid == 'anonymous'
         assert g.user is None

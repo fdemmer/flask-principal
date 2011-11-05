@@ -39,9 +39,9 @@ For example::
     from flaskext.principal import Identity, identity_changed
 
     def login_view(req):
-        username = req.form.get('username')
+        uid = req.form.get('username')
         # check the credentials
-        identity_changed.send(app, identity=Identity(username))
+        identity_changed.send(app, identity=Identity(uid))
 """)
 
 
@@ -138,6 +138,12 @@ class Identity(object):
     set after loading.
     """
     def __init__(self, uid, user=None, auth_type=None):
+        
+        class CallableSet(set):
+            def __call__(self, *args):
+                for arg in args:
+                    self.add(arg)
+        
         self.uid = uid
         self.user = user
         self.auth_type = auth_type
@@ -160,7 +166,7 @@ class Identity(object):
 
 
 class AnonymousIdentity(Identity):
-    """The default Identity when no other is available. Uses "anon" as uid
+    """The default Identity when no other is available. Uses "anonymous" as uid
        and all other fields using defaults from the Identity class.
 
     :attr uid: `"anon"`
@@ -168,7 +174,7 @@ class AnonymousIdentity(Identity):
     """
 
     def __init__(self):
-        Identity.__init__(self, 'anon')
+        Identity.__init__(self, 'anonymous')
 
 
 class IdentityContext(object):
@@ -236,7 +242,6 @@ class Permission(object):
         """A set of needs, any of which must be present in an identity to have
         access.
         """
-
         self.needs = set(needs)
         self.excludes = set()
 
