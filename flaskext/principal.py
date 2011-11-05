@@ -15,7 +15,7 @@ from functools import partial, wraps
 from collections import namedtuple, deque
 
 
-from flask import g, session, current_app, abort
+from flask import g, session, current_app, abort, request
 from flask.signals import Namespace
 
 
@@ -120,7 +120,9 @@ class PermissionDenied(RuntimeError):
 class Identity(object):
     """Represent the user's identity.
 
-    :param name: The username
+    :param uid: The user identifier (name, id, ...)
+    :param user: The user object corresponding to that user identifier (made
+                 available as `g.user`)
     :param auth_type: The authentication type used to confirm the user's
                       identity.
 
@@ -134,8 +136,9 @@ class Identity(object):
     Needs that are provided by this identity should be added to the `provides`
     set after loading.
     """
-    def __init__(self, name, auth_type=''):
-        self.name = name
+    def __init__(self, uid, user=None, auth_type=None):
+        self.uid = uid
+        self.user = user
         self.auth_type = auth_type
 
         self.provides = set()
@@ -158,7 +161,8 @@ class Identity(object):
 class AnonymousIdentity(Identity):
     """An anonymous identity
 
-    :attr name: `"anon"`
+    :attr uid: `"anon"`
+    :attr user: `None`
     """
 
     def __init__(self):
@@ -391,19 +395,6 @@ class Denial(Permission):
         self.needs = set()
 
 
-def session_identity_loader():
-    if 'identity.name' in session and 'identity.auth_type' in session:
-        identity = Identity(session['identity.name'],
-                            session['identity.auth_type'])
-        return identity
-
-
-def session_identity_saver(identity):
-    session['identity.name'] = identity.name
-    session['identity.auth_type'] = identity.auth_type
-    session.modified = True
-
-
 class Principal(object):
     """Principal extension
 
@@ -411,11 +402,9 @@ class Principal(object):
     :param use_sessions: Whether to use sessions to extract and store
                          identification.
     """
-    def __init__(self, app=None, use_sessions=True):
+    def __init__(self, app=None):
         self.identity_loaders = deque()
         self.identity_savers = deque()
-        # XXX This will probably vanish for a better API
-        self.use_sessions = use_sessions
         if app is not None:
             self._init_app(app)
 
@@ -423,15 +412,14 @@ class Principal(object):
         app.before_request(self._on_before_request)
         identity_changed.connect(self._on_identity_changed, app)
 
-        if self.use_sessions:
-            self.identity_loader(session_identity_loader)
-            self.identity_saver(session_identity_saver)
-
-    def set_identity(self, identity):
-        """Set the current identity.
+    def set_identity(self, identity=None):
+        """Set the current identity. If identity is None, an anonymous identity is set
 
         :param identity: The identity to set
         """
+        if identity is None:
+            identity = AnonymousIdentity()
+
         self._set_thread_identity(identity)
         for saver in self.identity_savers:
             saver(identity)
@@ -474,8 +462,136 @@ class Principal(object):
         self.identity_savers.appendleft(f)
         return f
 
+    def session_loader(self, identity_by_uid_fn):
+        """Decorator to enable session identity loading and saving.
+
+        The decorated function is called with an user identifier and should return
+        an identity if the user identifier is meaningful.
+
+        If an identity is returned then it will be set as the current identity,
+        otherwise Principal will continue looking for another identity.
+
+        The identity `auth_type` will be set to `"session"` if not already set.
+
+        This also enables the session identity saver which will store the
+        user identifier in the session cookie or remove the user identifier
+        if an anonymous identity is loaded.
+
+        For example::
+
+            app = Flask(__name__)
+
+            principals = Principal(app)
+
+            @principals.session_loader
+            def get_identity_by_uid(uid):
+                user = model.User.query.get(uid)
+                if user:
+                    return Identity(user.id, user)
+        """
+        def authenticate_session():
+            uid = session.get('uid')
+            if not uid:
+                return
+            identity = identity_by_uid_fn(uid)
+            if identity and not identity.auth_type:
+                identity.auth_type = "session"
+            return identity
+
+        def remember_session(identity):
+            if not isinstance(identity, AnonymousIdentity):
+                session['uid'] = identity.uid
+            elif 'uid' in session:
+                del session['uid']
+            session.modified = True
+
+        self.identity_loader(authenticate_session)
+        self.identity_saver(remember_session)
+        return identity_by_uid_fn
+
+    def http_basic_loader(self, identity_by_credentials_fn):
+        """Decorator to enable HTTP Basic identity loading.
+
+        The decorated function is called with the credentials found in the
+        HTTP Authorization header (username and password) and should return
+        an identity if the credentials are meaningful.
+
+        If an identity is returned then it will be set as the current identity,
+        otherwise Principal will continue looking for another identity.
+
+        The identity `auth_type` will be set to `"http-basic"` if not already set.
+
+        For example::
+
+            app = Flask(__name__)
+
+            principals = Principal(app)
+
+            @principals.http_basic_loader
+            def get_identity_by_credentials(username, password):
+                user = model.User.query.filter(model.User.username == username)
+                if user and user.validate_password(password):
+                    return Identity(user.id, user)
+        """
+        def authenticate_http_basic():
+            a = request.authorization
+            if a and a['username'] and a['password']:
+                identity = identity_by_credentials_fn(a['username'], a['password'])
+                if identity and not identity.auth_type:
+                    identity.auth_type = "http-basic"
+                return identity
+
+        self.identity_loader(authenticate_http_basic)
+        return identity_by_credentials_fn
+
+    def form_loader(self, login_paths=[]):
+        """Decorator to enable HTTP POST-style identity loading.
+
+        The decorated function is called with the credentials posted at
+        one of the login paths defined (login and password) and should return
+        an identity if the credentials are meaningful.
+
+        If an identity is returned then it will be set as the current identity,
+        otherwise Principal will continue looking for another identity.
+
+        The POST parameters are called `login` for the user login and `password`
+        for the user password.
+
+        The identity `auth_type` will be set to `"form"` if not already set.
+
+        For example::
+
+            app = Flask(__name__)
+
+            principals = Principal(app)
+
+            @principals.form_loader(['/login', '/special/logon'])
+            def get_identity_by_credentials(username, password):
+                user = model.User.query.filter(model.User.username == username)
+                if user and user.validate_password(password):
+                    return Identity(user.id, user)
+        """
+        def decorate(identity_by_credentials_fn):
+            def authenticate_form():
+                if request.path not in login_paths or request.method != 'POST':
+                    return
+
+                login, password = request.form.get('login', u''), request.form.get('password', u'')
+                if not login:
+                    return
+
+                identity = identity_by_credentials_fn(login, password)
+                if identity and not identity.auth_type:
+                    identity.auth_type = "form"
+                return identity
+
+            self.identity_loader(authenticate_form)
+            return identity_by_credentials_fn
+        return decorate
+
     def _set_thread_identity(self, identity):
         g.identity = identity
+        g.user = identity.user
         identity_loaded.send(current_app._get_current_object(),
                              identity=identity)
 
@@ -483,10 +599,9 @@ class Principal(object):
         self.set_identity(identity)
 
     def _on_before_request(self):
-        g.identity = AnonymousIdentity()
         for loader in self.identity_loaders:
             identity = loader()
             if identity is not None:
                 self.set_identity(identity)
                 return
-
+        self.set_identity()

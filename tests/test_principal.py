@@ -1,14 +1,14 @@
 
 from py.test import raises
 
-from flask import Flask, Response
+from flask import Flask, Response, g
 
 from flaskext.principal import Principal, Permission, Denial, RoleNeed, \
     PermissionDenied, identity_changed, Identity, identity_loaded
 
 
 def _on_principal_init(sender, identity):
-    if identity.name == 'ali':
+    if identity.uid == 'ali':
         identity.provides.add(RoleNeed('admin'))
 
 class ReraiseException(Exception):
@@ -23,12 +23,28 @@ editor_permission = Permission(RoleNeed('editor'))
 
 admin_denied = Denial(RoleNeed('admin'))
 
+identity_users = {
+	'ali': object(),
+	'james': object(),
+}
+
 def mkapp():
     app = Flask(__name__)
     app.secret_key = 'notverysecret'
     app.debug = True
 
     p = Principal(app)
+
+    @p.session_loader
+    def user_by_uid(uid):
+        if uid in identity_users:
+            return Identity(uid, identity_users[uid])
+
+    @p.http_basic_loader
+    @p.form_loader(['/login'])
+    def user_by_credential(login, password):
+        if login in identity_users and login == password:
+            return Identity(login, identity_users[login])
 
     identity_loaded.connect(_on_principal_init)
 
@@ -75,12 +91,12 @@ def mkapp():
     @app.route('/g')
     @admin_permission.require()
     @editor_permission.require()
-    def g():
+    def g_():
         return Response('hello')
 
     @app.route('/h')
     def h():
-        i = Identity('james')
+        i = Identity('james', identity_users['james'])
         identity_changed.send(app, identity=i)
         with admin_permission.require():
             with editor_permission.require():
@@ -88,7 +104,7 @@ def mkapp():
     
     @app.route('/j')
     def j():
-        i = Identity('james')
+        i = Identity('james', identity_users['james'])
         identity_changed.send(app, identity=i)
         with admin_permission.require(403):
             with editor_permission.require(403):
@@ -105,7 +121,7 @@ def mkapp():
         if not admin_or_editor:
             s.append("not admin")
 
-        i = Identity('ali')
+        i = Identity('ali', identity_users['ali'])
         identity_changed.send(app, identity=i)
         if admin_or_editor:
             s.append("now admin")  
@@ -134,14 +150,23 @@ def mkapp():
         return Response("OK")
 
     @app.route("/p")
-    def p():
+    def p_():
         admin_or_editor.test(404)
+        return Response("OK")
+
+    @app.route("/login", methods=['GET', 'POST'])
+    def login():
+        return Response(g.identity.uid)
+
+    @app.route("/logout")
+    def logout():
+        p.set_identity()
         return Response("OK")
 
     return app
 
 def mkadmin():
-    i = Identity('ali')
+    i = Identity('ali', identity_users['ali'])
     return i
 
 def test_deny_with():
@@ -303,3 +328,64 @@ def test_permission_test_with_http_exc():
     client = mkapp().test_client()
     response = client.open("/p")
     assert response.status_code == 404
+
+def test_identity_user():
+    client = mkapp().test_client()
+    with client:
+        response = client.open("/e")
+        assert response.status_code == 200
+        assert g.identity is not None
+        assert g.user is identity_users['ali']
+
+    with client:
+        response = client.open("/a")
+        assert response.status_code == 200
+        assert g.identity is not None
+        assert g.user is identity_users['ali']
+
+def test_set_identity_none():
+    app = mkapp()
+    client = app.test_client()
+    with client:
+        response = client.open("/e")
+        assert response.status_code == 200
+        assert g.identity is not None
+        assert g.user is identity_users['ali']
+
+    client.open("/logout")
+    raises(PermissionDenied, client.open, '/a')
+
+def test_http_basic_loader_ok():
+    client = mkapp().test_client()
+    with client:
+        response = client.open("/a", headers={'Authorization': ('Basic %s' % 'ali:ali'.encode('base64').strip())})
+        assert response.status_code == 200
+        assert g.identity is not None
+        assert g.user is identity_users['ali']
+
+def test_http_basic_loader_wrong():
+    client = mkapp().test_client()
+    raises(PermissionDenied, client.open, '/a', headers={'Authorization': ('Basic %s' % 'ali:foo'.encode('base64').strip())})
+
+def test_form_loader():
+    client = mkapp().test_client()
+    with client:
+        response = client.post("/login", data={'login': 'ali', 'password': 'ali'})
+        assert response.status_code == 200
+        assert g.identity is not None
+        assert g.user is identity_users['ali']
+        assert 'ali' in response.data
+
+def test_form_loader_get_or_wrong():
+    client = mkapp().test_client()
+    raises(PermissionDenied, client.open, '/a', headers={'Authorization': ('Basic %s' % 'ali:foo'.encode('base64').strip())})
+    with client:
+        response = client.open("/login", data={'login': 'ali', 'password': 'ali'})
+        assert response.status_code == 200
+        assert g.identity.uid == 'anon'
+        assert g.user is None
+
+        response = client.post("/login", data={'login': 'ali', 'password': 'foo'})
+        assert response.status_code == 200
+        assert g.identity.uid == 'anon'
+        assert g.user is None
