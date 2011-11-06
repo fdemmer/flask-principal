@@ -202,7 +202,8 @@ class ResourceContext(object):
     """
 
     def __init__(self, permission, abort_with=None):
-        """...
+        """
+        Create a ResourceContext with the given Permission.
         
         :attr permission:   The permission required to access the resource.
         :attr abort_with:   A HTTP error code to use with abort() in case
@@ -251,7 +252,7 @@ class ResourceContext(object):
         # check the permission and abort on error
         if not self.permission.allows(self.identity):
             if self.abort_with is not None:
-                abort(self.abort_with, self.permission)
+                abort(self.abort_with)
             raise PermissionDenied(self.permission)
 
         # return current identity on success
@@ -298,19 +299,13 @@ class Permission(object):
         """
         return other.issubset(self)
 
-    def required(self, abort_with=None):
-        """Create a ResourceContext with this Permission.
-
-        It may be used as a context manager, or a decorator.
-
-        If ``abort_with`` is passed then ``abort()`` will be called
-        with the HTTP exception code. Otherwise a ``PermissionDenied``
-        exception will be raised if the identity does not meet the 
-        requirements.
-
-        :param abort_with: the HTTP exception code (403, 401 etc) used to abort
+    def required(self, *args, **kwargs):
         """
-        return ResourceContext(self, abort_with)
+        Create a ResourceContext from this Permission.
+
+        See ResourceContext for valid parameters.
+        """
+        return ResourceContext(self, *args, **kwargs)
 
     def test(self):
         """
