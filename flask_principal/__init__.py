@@ -5,7 +5,7 @@
 
     Identity management for Flask.
 
-    :copyright: (c) 2010 by Ali Afshar, Dan Jacob, Raphaël Slinckx
+    :copyright: (c) 2010 by Ali Afshar, Dan Jacob, Raphaël Slinckx.
     :copyright: (c) 2011 by Pedro Algarvio, Florian Demmer.
     :license: MIT, see LICENSE for more details.
 
@@ -115,11 +115,14 @@ are.
 
 
 class PermissionDenied(RuntimeError):
-    """Permission denied to the resource
     """
+    Permission denied to the resource
+    """
+    pass
 
 class Identity(object):
-    """Represent the client's identity.
+    """
+    Represent the client's identity.
 
     :param uid: A unique identifier (the login name, an internal id, ...)
     :param user: The user object corresponding to that user identifier (made
@@ -139,7 +142,7 @@ class Identity(object):
     """
     def __init__(self, uid, user=None, auth_type=None):
         
-        class CallableSet(set):
+        class RoleSet(set):
             def __call__(self, *args):
                 for arg in args:
                     self.add(arg)
@@ -148,7 +151,7 @@ class Identity(object):
         self.user = user
         self.auth_type = auth_type
         
-        self.provides = CallableSet()
+        self.provides = RoleSet()
         """
         Add one or more Needs, so that this Identity can provide them::
             
@@ -163,7 +166,8 @@ class Identity(object):
         """
 
     def can(self, permission):
-        """Whether the identity has access to the permission.
+        """
+        Whether the identity has access to the permission.
 
         :param permission: The permission to test provision for.
         """
@@ -171,8 +175,9 @@ class Identity(object):
 
 
 class AnonymousIdentity(Identity):
-    """The default Identity when no other is available. Uses "anonymous" as uid
-       and all other fields using defaults from the Identity class.
+    """
+    The default Identity when no other is available. Uses "anonymous" as uid
+    and all other fields using defaults from the Identity class.
 
     :attr uid: `"anon"`
     :attr user: `None`
@@ -183,7 +188,9 @@ class AnonymousIdentity(Identity):
 
 
 class ResourceContext(object):
-    """The context for examining whether the Identity has Permission.
+    """
+    The context for examining whether the Identity has Permission to whatever
+    the ResourceContext is wrapped around.
     
     .. note:: The context is usually created by the Permission.required()
               method and can be used as a context manager (``with`` statement)
@@ -198,11 +205,10 @@ class ResourceContext(object):
         """...
         
         :attr permission:   The permission required to access the resource.
-        :attr abort_with:   A HTTP error code to use when aborting in case
+        :attr abort_with:   A HTTP error code to use with abort() in case
                             access is denied.
-                            This defaults to None, which raises a 
-                            PermissionDenied exception instead of calling 
-                            abort().
+                            This defaults to None. In that case a
+                            PermissionDenied exception is raised.
         """
         self.permission = permission
         self.abort_with = abort_with
@@ -210,39 +216,53 @@ class ResourceContext(object):
     @property
     def identity(self):
         """
-        The Identity in this context, as stored in the Flask global ``g`` object.
+        The Identity in this context, as stored in the Flask global ``g``.
         """
         return g.identity
 
     def can(self):
-        """Check if the Identity provides the Permission.
+        """
+        Check if the Identity provides the Permission.
         """
         return self.identity.can(self.permission)
 
-    def __call__(self, f):
-        @wraps(f)
-        def _decorated(*args, **kw):
+    def __call__(self, func):
+        @wraps(func)
+        def decorated(*args, **kwargs):
             self.__enter__()
             exc = (None, None, None)
             try:
-                result = f(*args, **kw)
+                result = func(*args, **kwargs)
             except Exception:
                 exc = sys.exc_info()
             self.__exit__(*exc)
             return result
-        return _decorated
+        return decorated
 
     def __enter__(self):
-        # check the permission here
+        """
+        The context guard returns the current Identity::
+        
+            protected_resource = ResourceContext(Permission(('role', 'admin')))
+            with protected_resource() as ident:
+                # ident is allowed to access resource
+                pass
+        """
+        # check the permission and abort on error
         if not self.permission.allows(self.identity):
             if self.abort_with is not None:
                 abort(self.abort_with, self.permission)
             raise PermissionDenied(self.permission)
 
+        # return current identity on success
+        return self.identity
+
     def __exit__(self, *exc):
+        """Context tear down."""
         if exc != (None, None, None):
             cls, val, tb = exc
             raise cls, val, tb
+        # do not swallow any exceptions
         return False
 
 
@@ -292,7 +312,7 @@ class Permission(object):
         """
         return ResourceContext(self, abort_with)
 
-    def test(self, abort_with=None):
+    def test(self):
         """
         Checks if permission available and raises relevant exception 
         if not. This is useful if you just want to check permission
@@ -304,7 +324,7 @@ class Permission(object):
                 pass
         """
 
-        with self.required(abort_with):
+        with self.required():
             pass
         
     def reverse(self):
@@ -341,7 +361,6 @@ class Permission(object):
             p = p1.difference(p2)
             p = p1 | p2
         """
-
         p = Permission(*self.needs.difference(other.needs))
         p.excludes.update(self.excludes.difference(other.excludes))
         return p
@@ -382,7 +401,7 @@ class Permission(object):
         equivalent::
 
             assert permission.require().can()
-            assert permission            
+            assert permission
         """
         return self.required().can()
 
@@ -430,9 +449,9 @@ class Principal(object):
         self.identity_savers = deque()
         self.skip_static = skip_static
         if app is not None:
-            self._init_app(app)
+            self.init_app(app)
 
-    def _init_app(self, app):
+    def init_app(self, app):
         app.before_request(self._on_before_request)
         identity_changed.connect(self._on_identity_changed, app)
 
@@ -538,7 +557,8 @@ class Principal(object):
         return identity_by_uid_fn
 
     def http_basic_loader(self, identity_by_credentials_fn):
-        """Decorator to enable HTTP Basic identity loading.
+        """
+        Decorator to enable HTTP Basic identity loading.
 
         The decorated function is called with the credentials found in the
         HTTP Authorization header (username and password) and should return
