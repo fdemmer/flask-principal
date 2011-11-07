@@ -3,7 +3,7 @@ from py.test import raises
 
 from flask import Flask, Response, g
 
-from flaskext.principal import Principal, Permission, Denial, RoleNeed, \
+from flask.ext.principal import Principal, Permission, Denial, RoleNeed, \
     PermissionDenied, identity_changed, Identity, identity_loaded
 
 
