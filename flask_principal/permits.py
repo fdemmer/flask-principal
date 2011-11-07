@@ -53,14 +53,24 @@ class BasePermit(object):
     """
     Use as base class for Permits, that are more complex than tuples. 
     To implement your own Permits overload the constructor, do what you need 
-    to and in the end call super with arguments, that make the Permit unique 
+    to and finally call set_ident with arguments, that make the Permit unique 
     and comparable.
     """
     def __init__(self, *args, **kwargs):
-        #: A clear text representation of what was used to create the hash.
-        self.ident = list(args)+[k+"="+v for k, v in kwargs.items()]
-        #: A md5 hash unique for this permit.
-        self.hash = hashlib.md5("".join(self.ident)).hexdigest()
+        self.set_ident(*args, **kwargs)
+
+    def set_ident(self, *args, **kwargs):
+        """
+        Set a clear text representation of what should be used to create 
+        the hash.
+        """
+        self.ident = list(args) + \
+            ["{}={}".format(k, v) for k, v in kwargs.items()]
+
+    @property
+    def hash(self):
+        """A md5 hash unique for this permit based on the ident."""
+        return hashlib.md5("".join(self.ident)).hexdigest()
 
     def __repr__(self):
         return "<%s(ident='%s')>" % \
@@ -81,8 +91,7 @@ class AuthTypePermit(BasePermit):
     def __init__(self, auth_type):
         #: A short text description of the authentication type used or required.
         self.auth_type = auth_type
-        super(AuthTypePermit, self).__init__(permit_cls=self.__class__.__name__, 
-            auth_type=auth_type)
+        self.set_ident(permit_cls=self.__class__.__name__, auth_type=auth_type)
 
     def __repr__(self):
         return "<%s(auth_type='%s')>" % \
