@@ -12,8 +12,8 @@
 """
 
 import sys
-from functools import partial, wraps
-from collections import namedtuple, deque
+from functools import wraps
+from collections import deque
 
 
 from flask import g, session, current_app, abort, request
@@ -60,7 +60,7 @@ major activities (in addition to what the identity loader already may have done)
 
 For example::
 
-    from flaskext.principal import identity_loaded, RoleNeed, UserNeed
+    from flaskext.principal import identity_loaded, RolePermit, UserPermit
 
     @identity_loaded.connect
     def on_identity_loaded(sender, identity):
@@ -68,52 +68,10 @@ For example::
         user = db.get(identity.name)
         # Update the roles that a user can provide
         for role in user.roles:
-            identity.provides(RoleNeed(role.name))
+            identity.provides(RolePermit(role.name))
         # Save the user object in the Identity, so we only look it up once
         identity.user = user
 """)
-
-
-Need = namedtuple('Need', ['method', 'value'])
-"""A required need
-
-This is just a named tuple, and practically any tuple will do.
-
-The ``method`` attribute can be used to look up element 0, and the ``value``
-attribute can be used to look up element 1.
-"""
-
-
-UserNeed = partial(Need, 'name')
-UserNeed.__doc__ = """A need with the method preset to `"name"`."""
-
-
-RoleNeed = partial(Need, 'role')
-RoleNeed.__doc__ = """A need with the method preset to `"role"`."""
-
-
-TypeNeed = partial(Need, 'type')
-TypeNeed.__doc__ = """A need with the method preset to `"type"`."""
-
-
-ActionNeed = partial(Need, 'action')
-TypeNeed.__doc__ = """A need with the method preset to `"action"`."""
-
-
-ItemNeed = namedtuple('RowNeed', ['method', 'value', 'type'])
-"""A required item need
-
-An item need is just a named tuple, and practically any tuple will do. In
-addition to other Needs, there is a type, for example this could be specified
-as::
-
-    RowNeed('update', 27, 'posts')
-    ('update', 27, 'posts') # or like this
-
-And that might describe the permission to update a particular blog post. In
-reality, the developer is free to choose whatever convention the permissions
-are.
-"""
 
 
 class PermissionDenied(RuntimeError):
@@ -139,7 +97,7 @@ class Identity(object):
     Once loaded it is sent using the `identity-loaded` signal, and should be
     populated with additional required information.
 
-    Needs/Permits that are provided by this identity should be added using 
+    Permits that are provided by this identity should be added using 
     add_permit() after loading.
     """
     def __init__(self, uid, **kwargs):
@@ -156,15 +114,15 @@ class Identity(object):
         
         self.provides = RoleSet()
         """
-        Add one or more Needs/Permits, so that this Identity can provide them::
+        Add one or more Permits, so that this Identity can provide them::
             
             identity = Identity('ali')
-            identity.provides(RoleNeed('guest'))
+            identity.provides(RolePermit('guest'))
             identity.provides(('role', 'admin'), ('role', 'dba'))
             
-        Is also used to access the provided Needs::
+        Is also used to access the provided Permit::
         
-            needs.issubset(identity.provides)
+            permits.issubset(identity.provides)
             
         """
 
@@ -274,15 +232,18 @@ class ResourceContext(object):
 
 
 class Permission(object):
-    """A permission is a collection of "needs", any of which must be present to access a resource.
-
-    :param needs: The needs for this permission
     """
-    def __init__(self, *needs):
-        """A set of needs, any of which must be present in an identity to have
+    A permission is a collection of permits, any of which must be present 
+    to access a resource.
+
+    :param permits: The permits for this permission
+    """
+    def __init__(self, *permits):
+        """
+        A set of permits, any of which must be present in an identity to have
         access.
         """
-        self.needs = set(needs)
+        self.permits = set(permits)
         self.excludes = set()
 
     def __nonzero__(self):
@@ -332,12 +293,12 @@ class Permission(object):
         
     def reverse(self):
         """
-        Returns reverse of current state (needs->excludes, excludes->needs) 
+        Returns reverse of current state (permits->excludes, excludes->permits) 
         """
 
         p = Permission()
-        p.needs.update(self.excludes)
-        p.excludes.update(self.needs)
+        p.permits.update(self.excludes)
+        p.excludes.update(self.permits)
         return p
 
     def union(self, other):
@@ -351,7 +312,7 @@ class Permission(object):
 
         :param other: The other permission
         """
-        p = Permission(*self.needs.union(other.needs))
+        p = Permission(*self.permits.union(other.permits))
         p.excludes.update(self.excludes.union(other.excludes))
         return p
 
@@ -364,12 +325,12 @@ class Permission(object):
             p = p1.difference(p2)
             p = p1 | p2
         """
-        p = Permission(*self.needs.difference(other.needs))
+        p = Permission(*self.permits.difference(other.permits))
         p.excludes.update(self.excludes.difference(other.excludes))
         return p
 
     def issubset(self, other):
-        """Whether this permission needs are a subset of another
+        """Whether this permits are a subset of another
 
         You can also use the **in** operator. The following are equivalent::
 
@@ -378,7 +339,7 @@ class Permission(object):
 
         :param other: The other permission
         """
-        return self.needs.issubset(other.needs) and \
+        return self.permits.issubset(other.permits) and \
                self.excludes.issubset(other.excludes)
 
     def allows(self, identity):
@@ -386,7 +347,7 @@ class Permission(object):
 
         :param identity: The identity
         """
-        if self.needs and not self.needs.intersection(identity.provides):
+        if self.permits and not self.permits.intersection(identity.provides):
             return False
 
         if self.excludes and self.excludes.intersection(identity.provides):
@@ -413,29 +374,29 @@ class Denial(Permission):
     """
     Class for handling negative permissions. This is the same as a 
     **Permission**, but is initialized with a given set of excludes rather
-    than needs.
+    than permits.
 
-    Excludes are the same as needs (and use the same classes) but the
-    difference is that if an identity meets at least one need, they have
-    permission, while if they meet at least one exclude, they do not have
+    Excludes are the same as permits (and use the same classes) but the
+    difference is that if an identity has a permit, they have
+    permission, while if they have an exclude, they do not have
     the permission.
 
     You can combine a **Denial** and a **Permission** (or a **Denial** and 
     another **Denial**) in the same way as a **Permission** and another 
     **Permission**. For example::
 
-        p = Permission(RoleNeed('auth')) & Denial(UserNeed('me'))
+        p = Permission(RolePermit('auth')) & Denial(UserPermit('me'))
 
     The resulting **Permission** *p* would pass if the identity provided the 
-    **RoleNeed** 'auth' but would fail if the identity also provided the 
-    **UserNeed** 'me'.
+    **RolePermit** 'auth' but would fail if the identity also provided the 
+    **UserPermit** 'me'.
 
     :param excludes: The excludes for this permission
     """
 
     def __init__(self, *excludes):
         self.excludes = set(excludes)
-        self.needs = set()
+        self.permits = set()
 
 
 class Principal(object):

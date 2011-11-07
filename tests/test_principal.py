@@ -3,25 +3,25 @@ from py.test import raises
 
 from flask import Flask, Response, g
 
-from flask.ext.principal import Principal, Permission, Denial, RoleNeed, \
+from flask.ext.principal import Principal, Permission, Denial, RolePermit, \
     PermissionDenied, identity_changed, Identity, identity_loaded
 
 
 def _on_principal_init(sender, identity):
     if identity.uid == 'ali':
-        identity.provides(RoleNeed('admin'))
+        identity.provides(RolePermit('admin'))
 
 class ReraiseException(Exception):
     """For checking reraising"""
     
-admin_permission = Permission(RoleNeed('admin'))
+admin_permission = Permission(RolePermit('admin'))
 anon_permission = Permission()
 
-admin_or_editor = Permission(RoleNeed('admin'), RoleNeed('editor'))
+admin_or_editor = Permission(RolePermit('admin'), RolePermit('editor'))
 
-editor_permission = Permission(RoleNeed('editor'))
+editor_permission = Permission(RolePermit('editor'))
 
-admin_denied = Denial(RoleNeed('admin'))
+admin_denied = Denial(RolePermit('admin'))
 
 identity_users = {
 	'ali': object(),
@@ -171,22 +171,22 @@ def mkadmin():
 def test_identity_creation():
 
     i = Identity(1)
-    i.provides(RoleNeed('user'))
+    i.provides(RolePermit('user'))
     
-    assert i.provides == set([RoleNeed('user')])
+    assert i.provides == set([RolePermit('user')])
     
-    i.provides(RoleNeed('admin'), RoleNeed('operator'))
+    i.provides(RolePermit('admin'), RolePermit('operator'))
     
-    assert i.provides == set([RoleNeed('user'), RoleNeed('admin'), 
-        RoleNeed('operator')])
+    assert i.provides == set([RolePermit('user'), RolePermit('admin'), 
+        RolePermit('operator')])
 
 def test_identity_allowed():
 
-    p1 = Permission(RoleNeed('boss'), RoleNeed('lackey'))
-    p2 = Permission(RoleNeed('lackey'))
+    p1 = Permission(RolePermit('boss'), RolePermit('lackey'))
+    p2 = Permission(RolePermit('lackey'))
     
     i = Identity(1)
-    i.provides(RoleNeed('boss'))
+    i.provides(RolePermit('boss'))
     
     assert p1.allows(i) == True
     assert p2.allows(i) == False
@@ -222,9 +222,9 @@ def test_permission_difference():
     p1 = Permission(('a', 'b'), ('a', 'c'))
     p2 = Permission(('a', 'c'), ('d', 'e'))
     p3 = p1.difference(p2)
-    assert p3.needs == set([('a', 'b')])
+    assert p3.permits == set([('a', 'b')])
     p4 = p2.difference(p1)
-    assert p4.needs == set([('d', 'e')])
+    assert p4.permits == set([('d', 'e')])
 
 
 def test_permission_union_denial():
@@ -301,28 +301,28 @@ def test_and_permissions_view_with_http_exc_decorated():
 
 def test_permission_and():
 
-    p1 = Permission(RoleNeed('boss'))
-    p2 = Permission(RoleNeed('lackey'))
+    p1 = Permission(RolePermit('boss'))
+    p2 = Permission(RolePermit('lackey'))
 
     p3 = p1 & p2
     p4 = p1.union(p2)
 
-    assert p3.needs == p4.needs
+    assert p3.permits == p4.permits
 
 def test_permission_or():
 
-    p1 = Permission(RoleNeed('boss'), RoleNeed('lackey'))
-    p2 = Permission(RoleNeed('lackey'), RoleNeed('underling'))
+    p1 = Permission(RolePermit('boss'), RolePermit('lackey'))
+    p2 = Permission(RolePermit('lackey'), RolePermit('underling'))
 
     p3 = p1 | p2
     p4 = p1.difference(p2)
 
-    assert p3.needs == p4.needs
+    assert p3.permits == p4.permits
 
 def test_contains():
 
-    p1 = Permission(RoleNeed('boss'), RoleNeed('lackey'))
-    p2 = Permission(RoleNeed('lackey'))
+    p1 = Permission(RolePermit('boss'), RolePermit('lackey'))
+    p2 = Permission(RolePermit('lackey'))
 
     assert p2.issubset(p1)
     assert p2 in p1
