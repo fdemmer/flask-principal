@@ -140,7 +140,7 @@ class Identity(object):
     Needs that are provided by this identity should be added using the
     provides() function after loading.
     """
-    def __init__(self, uid, user=None, auth_type=None):
+    def __init__(self, uid, **kwargs):
         
         class RoleSet(set):
             def __call__(self, *args):
@@ -148,8 +148,9 @@ class Identity(object):
                     self.add(arg)
         
         self.uid = uid
-        self.user = user
-        self.auth_type = auth_type
+        self.args = kwargs
+        self.user = kwargs.get('user')
+        self.auth_type = kwargs.get('auth_type')
         
         self.provides = RoleSet()
         """
@@ -164,6 +165,9 @@ class Identity(object):
             needs.issubset(identity.provides)
             
         """
+
+    def add_need(self, need):
+        self.provides.add(need)
 
     def can(self, permission):
         """
