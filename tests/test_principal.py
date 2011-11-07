@@ -38,13 +38,13 @@ def mkapp():
     @p.session_loader
     def user_by_uid(uid):
         if uid in identity_users:
-            return Identity(uid, identity_users[uid])
+            return Identity(uid, user=identity_users[uid])
 
     @p.http_basic_loader
     @p.form_loader(['/login'])
     def user_by_credential(login, password):
         if login in identity_users and login == password:
-            return Identity(login, identity_users[login])
+            return Identity(login, user=identity_users[login])
 
     identity_loaded.connect(_on_principal_init)
 
@@ -96,7 +96,7 @@ def mkapp():
 
     @app.route('/h')
     def h():
-        i = Identity('james', identity_users['james'])
+        i = Identity('james', user=identity_users['james'])
         identity_changed.send(app, identity=i)
         with admin_permission.required():
             with editor_permission.required():
@@ -104,7 +104,7 @@ def mkapp():
     
     @app.route('/j')
     def j():
-        i = Identity('james', identity_users['james'])
+        i = Identity('james', user=identity_users['james'])
         identity_changed.send(app, identity=i)
         with admin_permission.required(403):
             with editor_permission.required(403):
@@ -121,7 +121,7 @@ def mkapp():
         if not admin_or_editor:
             s.append("not admin")
 
-        i = Identity('ali', identity_users['ali'])
+        i = Identity('ali', user=identity_users['ali'])
         identity_changed.send(app, identity=i)
         if admin_or_editor:
             s.append("now admin")  
@@ -165,7 +165,7 @@ def mkapp():
     return app
 
 def mkadmin():
-    i = Identity('ali', identity_users['ali'])
+    i = Identity('ali', user=identity_users['ali'])
     return i
 
 def test_identity_creation():
