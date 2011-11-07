@@ -62,6 +62,10 @@ class BasePermit(object):
         #: A md5 hash unique for this permit.
         self.hash = hashlib.md5("".join(self.ident)).hexdigest()
 
+    def __repr__(self):
+        return "<%s(ident='%s')>" % \
+            (self.__class__.__name__, self.ident)
+
     def __hash__(self):
         return long(self.hash, 16)
 
@@ -80,4 +84,7 @@ class AuthTypePermit(BasePermit):
         super(AuthTypePermit, self).__init__(permit_cls=self.__class__.__name__, 
             auth_type=auth_type)
 
+    def __repr__(self):
+        return "<%s(auth_type='%s')>" % \
+            (self.__class__.__name__, self.auth_type)
 
