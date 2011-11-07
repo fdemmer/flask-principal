@@ -303,23 +303,25 @@ class Permission(object):
         """
         Create a ResourceContext from this Permission.
 
-        See ResourceContext for valid parameters.
+        See ResourceContext for valid arguments.
         """
         return ResourceContext(self, *args, **kwargs)
 
-    def test(self):
+    def test(self, *args, **kwargs):
         """
         Checks if permission available and raises relevant exception 
         if not. This is useful if you just want to check permission
-        without wrapping everything in a required() block.
+        without wrapping everything in a with-required() block.
+
+        It still needs a request context though! The arguments are the 
+        same as with required() (and the ResourceContext constructor).
 
         This is equivalent to::
 
             with permission.required():
                 pass
         """
-
-        with self.required():
+        with self.required(*args, **kwargs):
             pass
         
     def reverse(self):
