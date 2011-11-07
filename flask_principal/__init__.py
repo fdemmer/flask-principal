@@ -146,7 +146,6 @@ class AnonymousIdentity(Identity):
     :attr uid: `"anon"`
     :attr user: `None`
     """
-
     def __init__(self):
         Identity.__init__(self, 'anonymous')
 
@@ -233,8 +232,9 @@ class ResourceContext(object):
 
 class Permission(object):
     """
-    A permission is a collection of permits, any of which must be present 
-    to access a resource.
+    A permission is a collection of permits, any of which must be allowed 
+    or must not be denied to access a resource. Use Permission and Denial 
+    to construct combinations.
 
     :param permits: The permits for this permission
     """

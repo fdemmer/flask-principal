@@ -15,7 +15,7 @@ and __eq__ functions.
 """
 
 Permit = namedtuple('Need', ['method', 'value'])
-"""A required need
+"""A required permit.
 
 This is just a named tuple, and practically any tuple will do.
 
@@ -24,25 +24,24 @@ attribute can be used to look up element 1.
 """
 
 UserPermit = partial(Permit, 'name')
-UserPermit.__doc__ = """A need with the method preset to `"name"`."""
+UserPermit.__doc__ = """A permit with the method preset to `"name"`."""
 
 RolePermit = partial(Permit, 'role')
-RolePermit.__doc__ = """A need with the method preset to `"role"`."""
+RolePermit.__doc__ = """A permit with the method preset to `"role"`."""
 
 TypePermit = partial(Permit, 'type')
-TypePermit.__doc__ = """A need with the method preset to `"type"`."""
+TypePermit.__doc__ = """A permit with the method preset to `"type"`."""
 
 ActionPermit = partial(Permit, 'action')
-ActionPermit.__doc__ = """A need with the method preset to `"action"`."""
+ActionPermit.__doc__ = """A permit with the method preset to `"action"`."""
 
-ItemPermit = namedtuple('RowNeed', ['method', 'value', 'type'])
+RowPermit = namedtuple('RowPermit', ['method', 'value', 'type'])
 """A required item need
 
-An item need is just a named tuple, and practically any tuple will do. In
-addition to other Needs, there is a type, for example this could be specified
-as::
+An item permit is just a named tuple. In addition to the fields of the other 
+permits, there is a type, for example this could be specified as::
 
-    RowNeed('update', 27, 'posts')
+    RowPermit('update', 27, 'posts')
     ('update', 27, 'posts') # or like this
 
 And that might describe the permission to update a particular blog post. In
