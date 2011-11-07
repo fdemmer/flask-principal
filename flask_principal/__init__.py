@@ -505,8 +505,8 @@ class Principal(object):
             if not uid:
                 return
             identity = identity_by_uid_fn(uid)
-            if identity and not identity.auth_type:
-                identity.auth_type = "session"
+            if identity:
+                identity.add_permit(AuthTypePermit('session'))
             return identity
 
         def remember_session(identity):
@@ -593,8 +593,8 @@ class Principal(object):
                     return
 
                 identity = identity_by_credentials_fn(login, password)
-                if identity and not identity.auth_type:
-                    identity.auth_type = "form"
+                if identity:
+                    identity.add_permit(AuthTypePermit('form'))
                 return identity
 
             self.identity_loader(authenticate_form)
