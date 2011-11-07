@@ -19,6 +19,8 @@ from collections import namedtuple, deque
 from flask import g, session, current_app, abort, request
 from flask.signals import Namespace
 
+from permits import *
+
 
 signals = Namespace()
 """Namespace for principal's signals.
@@ -137,8 +139,8 @@ class Identity(object):
     Once loaded it is sent using the `identity-loaded` signal, and should be
     populated with additional required information.
 
-    Needs that are provided by this identity should be added using the
-    provides() function after loading.
+    Needs/Permits that are provided by this identity should be added using 
+    add_permit() after loading.
     """
     def __init__(self, uid, **kwargs):
         
@@ -149,12 +151,12 @@ class Identity(object):
         
         self.uid = uid
         self.args = kwargs
-        self.user = kwargs.get('user')
-        self.auth_type = kwargs.get('auth_type')
+        self.user = kwargs.get('user', None)
+        self.auth_type = kwargs.get('auth_type', None)
         
         self.provides = RoleSet()
         """
-        Add one or more Needs, so that this Identity can provide them::
+        Add one or more Needs/Permits, so that this Identity can provide them::
             
             identity = Identity('ali')
             identity.provides(RoleNeed('guest'))
@@ -166,8 +168,8 @@ class Identity(object):
             
         """
 
-    def add_need(self, need):
-        self.provides.add(need)
+    def add_permit(self, permit):
+        self.provides.add(permit)
 
     def can(self, permission):
         """
@@ -586,8 +588,8 @@ class Principal(object):
             a = request.authorization
             if a and a['username'] and a['password']:
                 identity = identity_by_credentials_fn(a['username'], a['password'])
-                if identity and not identity.auth_type:
-                    identity.auth_type = "http-basic"
+                if identity:
+                    identity.add_permit(AuthTypePermit('http-basic'))
                 return identity
 
         self.identity_loader(authenticate_http_basic)

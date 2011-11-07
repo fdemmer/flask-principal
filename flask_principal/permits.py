@@ -31,7 +31,7 @@ class BasePermit(object):
     def __eq__(self, other):
         return self.hash == other.hash
 
-class AuthTypeNeed(BasePermit):
+class AuthTypePermit(BasePermit):
     """
     A permit defining the type of authentication used. (eg. http-basic)
     This permit is automatically added by the default authentication loaders.
@@ -40,7 +40,7 @@ class AuthTypeNeed(BasePermit):
     def __init__(self, auth_type):
         #: A short text description of the authentication type used or required.
         self.auth_type = auth_type
-        super(AuthTypeNeed, self).__init__(permit_cls=self.__class__.__name__, 
+        super(AuthTypePermit, self).__init__(permit_cls=self.__class__.__name__, 
             auth_type=auth_type)
 
 
