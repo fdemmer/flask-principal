@@ -222,9 +222,9 @@ def test_permission_difference():
     p1 = Permission(('a', 'b'), ('a', 'c'))
     p2 = Permission(('a', 'c'), ('d', 'e'))
     p3 = p1.difference(p2)
-    assert p3.permits == set([('a', 'b')])
+    assert p3.allow == set([('a', 'b')])
     p4 = p2.difference(p1)
-    assert p4.permits == set([('d', 'e')])
+    assert p4.allow == set([('d', 'e')])
 
 
 def test_permission_union_denial():
@@ -238,16 +238,16 @@ def test_permission_difference_denial():
     p1 = Denial(('a', 'b'), ('a', 'c'))
     p2 = Denial(('a', 'c'), ('d', 'e'))
     p3 = p1.difference(p2)
-    assert p3.excludes == set([('a', 'b')])
+    assert p3.deny == set([('a', 'b')])
     p4 = p2.difference(p1)
-    assert p4.excludes == set([('d', 'e')])
+    assert p4.deny == set([('d', 'e')])
 
 def test_reverse_permission():
 
     p = Permission(('a', 'b'))
     d = p.reverse()
-    print d.excludes
-    assert ('a', 'b') in d.excludes
+    print d.deny
+    assert ('a', 'b') in d.deny
 
 def test_identity_changed():
     client = mkapp().test_client()
@@ -307,7 +307,7 @@ def test_permission_and():
     p3 = p1 & p2
     p4 = p1.union(p2)
 
-    assert p3.permits == p4.permits
+    assert p3.allow == p4.allow
 
 def test_permission_or():
 
@@ -317,7 +317,7 @@ def test_permission_or():
     p3 = p1 | p2
     p4 = p1.difference(p2)
 
-    assert p3.permits == p4.permits
+    assert p3.allow == p4.allow
 
 def test_contains():
 

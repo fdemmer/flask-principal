@@ -243,8 +243,16 @@ class Permission(object):
         A set of permits, any of which must be present in an identity to have
         access.
         """
-        self.permits = set(permits)
-        self.excludes = set()
+        self.permits = list(permits)
+        self.excludes = list()
+
+    @property
+    def allow(self):
+        return set(self.permits)
+
+    @property
+    def deny(self):
+        return set(self.excludes)
 
     def __nonzero__(self):
         """Equivalent to ``self.can()``.
@@ -276,15 +284,17 @@ class Permission(object):
 
     def test(self, *args, **kwargs):
         """
-        Checks if permission available and raises relevant exception 
-        if not. This is useful if you just want to check permission
-        without wrapping everything in a with-required() block.
+        Checks if permission available and raises the relevant exception 
+        if not (eg. PermissionDenied). This is useful if you just want to 
+        check permission without wrapping everything in a with-required() 
+        block.
 
         It still needs a request context though! The arguments are the 
         same as with required() (and the ResourceContext constructor).
 
-        This is equivalent to::
+        This is equivalent::
 
+            permission.test()
             with permission.required():
                 pass
         """
@@ -295,10 +305,9 @@ class Permission(object):
         """
         Returns reverse of current state (permits->excludes, excludes->permits) 
         """
-
         p = Permission()
-        p.permits.update(self.excludes)
-        p.excludes.update(self.permits)
+        p.permits = list(self.deny)
+        p.excludes = list(self.allow)
         return p
 
     def union(self, other):
@@ -312,8 +321,8 @@ class Permission(object):
 
         :param other: The other permission
         """
-        p = Permission(*self.permits.union(other.permits))
-        p.excludes.update(self.excludes.union(other.excludes))
+        p = Permission(*self.allow.union(other.allow))
+        p.excludes = list(self.deny.union(other.deny))
         return p
 
     def difference(self, other):
@@ -325,8 +334,8 @@ class Permission(object):
             p = p1.difference(p2)
             p = p1 | p2
         """
-        p = Permission(*self.permits.difference(other.permits))
-        p.excludes.update(self.excludes.difference(other.excludes))
+        p = Permission(*self.allow.difference(other.allow))
+        p.excludes = list(self.deny.difference(other.deny))
         return p
 
     def issubset(self, other):
@@ -339,18 +348,18 @@ class Permission(object):
 
         :param other: The other permission
         """
-        return self.permits.issubset(other.permits) and \
-               self.excludes.issubset(other.excludes)
+        return self.allow.issubset(other.allow) and \
+            self.deny.issubset(other.deny)
 
     def allows(self, identity):
         """Whether the Identity can access this Permission.
 
         :param identity: The identity
         """
-        if self.permits and not self.permits.intersection(identity.provides):
+        if self.allow and not self.allow.intersection(identity.provides):
             return False
 
-        if self.excludes and self.excludes.intersection(identity.provides):
+        if self.deny and self.deny.intersection(identity.provides):
             return False
 
         return True
@@ -394,9 +403,9 @@ class Denial(Permission):
     :param excludes: The excludes for this permission
     """
 
-    def __init__(self, *excludes):
-        self.excludes = set(excludes)
-        self.permits = set()
+    def __init__(self, *permits):
+        self.excludes = list(permits)
+        self.permits = list()
 
 
 class Principal(object):
