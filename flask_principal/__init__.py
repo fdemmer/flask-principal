@@ -248,10 +248,15 @@ class Permission(object):
 
     @property
     def allow(self):
+        """A *set* of Permits, that are required to be allowed."""
         return set(self.permits)
 
     @property
     def deny(self):
+        """
+        A *set* of Permits, that are required to be denied.
+        In other words, an Identity may not have those to gain access.
+        """
         return set(self.excludes)
 
     def __nonzero__(self):
