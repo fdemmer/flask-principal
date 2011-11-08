@@ -20,6 +20,7 @@ from flask import g, session, current_app, abort, request
 from flask.signals import Namespace
 
 from permits import *
+#from loaders import *
 
 
 signals = Namespace()
@@ -582,7 +583,7 @@ class Principal(object):
         self.identity_savers.appendleft(func)
         return func
 
-    def session_loader(self, identity_by_uid_fn):
+    def session_loader(self, create_identity):
         """Decorator to enable session identity loading and saving.
 
         The decorated function is called with an user identifier and should return
@@ -613,7 +614,7 @@ class Principal(object):
             uid = session.get('uid')
             if not uid:
                 return
-            identity = identity_by_uid_fn(uid)
+            identity = create_identity(uid)
             if identity:
                 identity.add_permit(AuthTypePermit('session'))
             return identity
@@ -627,9 +628,9 @@ class Principal(object):
 
         self.identity_loader(authenticate_session)
         self.identity_saver(remember_session)
-        return identity_by_uid_fn
+        return create_identity
 
-    def http_basic_loader(self, identity_by_credentials_fn):
+    def http_basic_loader(self, create_identity):
         """
         Decorator to enable HTTP Basic identity loading.
 
@@ -655,15 +656,14 @@ class Principal(object):
                     return Identity(user.id, user)
         """
         def authenticate_http_basic():
-            a = request.authorization
-            if a and a['username'] and a['password']:
-                identity = identity_by_credentials_fn(a['username'], a['password'])
-                if identity:
+            if request.authorization:
+                identity = create_identity(**request.authorization)
+                if identity is not None:
                     identity.add_permit(AuthTypePermit('http-basic'))
                 return identity
 
         self.identity_loader(authenticate_http_basic)
-        return identity_by_credentials_fn
+        return create_identity
 
     def form_loader(self, login_paths=[]):
         """Decorator to enable HTTP POST-style identity loading.
@@ -692,7 +692,7 @@ class Principal(object):
                 if user and user.validate_password(password):
                     return Identity(user.id, user)
         """
-        def decorate(identity_by_credentials_fn):
+        def decorate(create_identity):
             def authenticate_form():
                 if request.path not in login_paths or request.method != 'POST':
                     return
@@ -701,13 +701,13 @@ class Principal(object):
                 if not login:
                     return
 
-                identity = identity_by_credentials_fn(login, password)
+                identity = create_identity(login, password)
                 if identity:
                     identity.add_permit(AuthTypePermit('form'))
                 return identity
 
             self.identity_loader(authenticate_form)
-            return identity_by_credentials_fn
+            return create_identity
         return decorate
 
     def _set_thread_identity(self, identity):

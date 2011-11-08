@@ -42,9 +42,9 @@ def mkapp():
 
     @p.http_basic_loader
     @p.form_loader(['/login'])
-    def user_by_credential(login, password):
-        if login in identity_users and login == password:
-            return Identity(login, user=identity_users[login])
+    def user_by_credential(username, password):
+        if username in identity_users and username == password:
+            return Identity(username, user=identity_users[username])
 
     identity_loaded.connect(_on_principal_init)
 
