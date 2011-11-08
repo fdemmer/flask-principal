@@ -127,11 +127,15 @@ class Identity(object):
         """
 
     def add_permit(self, permit):
+        """
+        Add a permit to the identity. This is the same as adding them directly
+        by calling Identity.provides().
+        """
         self.provides.add(permit)
 
     def can(self, permission):
         """
-        Whether the identity has access to the permission.
+        Test whether the identity has access to the permission.
 
         :param permission: The permission to test provision for.
         """
@@ -140,10 +144,10 @@ class Identity(object):
 
 class AnonymousIdentity(Identity):
     """
-    The default Identity when no other is available. Uses "anonymous" as uid
-    and all other fields using defaults from the Identity class.
+    The default :class:`Identity` when no other is available. Uses "anonymous" as uid
+    and all other fields using defaults from :class:`Identity`.
 
-    :attr uid: `"anon"`
+    :attr uid: `"anonymous"`
     :attr user: `None`
     """
     def __init__(self):
@@ -152,16 +156,16 @@ class AnonymousIdentity(Identity):
 
 class ResourceContext(object):
     """
-    The context for examining whether the Identity has Permission to whatever
-    the ResourceContext is wrapped around.
+    The context for examining whether the :class:`Identity` has Permission to
+    whatever the ResourceContext is wrapped around.
     
-    .. note:: The context is usually created by the Permission.required()
-              method and can be used as a context manager (``with`` statement)
-              or a decorator.
+    .. note:: The context is usually created by the
+              :func:`Permission.required()` method and can be used as a context
+              manager (``with`` statement) or a decorator.
     
-    The permission is checked for provision in the identity, and if available
-    the flow is continued (context manager) or the function is executed
-    (decorator), otherwise an appropriate exception is raised.
+    The permission is checked for provision in the :class:`Identity`, and if
+    available the flow is continued (context manager) or the function is
+    executed (decorator), otherwise an appropriate exception is raised.
     """
 
     def __init__(self, permission, abort_with=None):
@@ -180,13 +184,14 @@ class ResourceContext(object):
     @property
     def identity(self):
         """
-        The Identity in this context, as stored in the Flask global ``g``.
+        The :class:`Identity` in this context, as stored in the Flask global
+        ``g``.
         """
         return g.identity
 
     def can(self):
         """
-        Check if the Identity provides the Permission.
+        Check if the :class:`Identity` provides the Permission.
         """
         return self.identity.can(self.permission)
 
@@ -205,7 +210,7 @@ class ResourceContext(object):
 
     def __enter__(self):
         """
-        The context guard returns the current Identity::
+        The context guard returns the current :class:`Identity`::
         
             protected_resource = ResourceContext(Permission(('role', 'admin')))
             with protected_resource() as ident:
@@ -255,7 +260,7 @@ class Permission(object):
     def deny(self):
         """
         A *set* of Permits, that are required to be denied.
-        In other words, an Identity may not have those to gain access.
+        In other words, an identity may not have those to gain access.
         """
         return set(self.excludes)
 
@@ -357,9 +362,9 @@ class Permission(object):
             self.deny.issubset(other.deny)
 
     def allows(self, identity):
-        """Whether the Identity can access this Permission.
+        """Whether the :class:`Identity` can access this Permission.
 
-        :param identity: The identity
+        :param identity: The :class:`Identity` instance.
         """
         if self.allow and not self.allow.intersection(identity.provides):
             return False
@@ -372,8 +377,8 @@ class Permission(object):
     def can(self):
         """Whether the required context for this permission has access
 
-        This creates an identity context and tests whether it can access this
-        permission
+        This creates an :class:`ResourceContext` and tests whether it can access
+        this permission
 
         You can also check the permission directly. The following are 
         equivalent::

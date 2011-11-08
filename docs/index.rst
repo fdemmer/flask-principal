@@ -85,7 +85,7 @@ restriction is easy to define as both a decorator and a context manager. A
 simple quickstart example is presented with commenting::
 
     from flask import Flask, Response
-    from flaskext.principal import Principal, Permission, RoleNeed
+    from flask.ext.principal import Principal, Permission, RoleNeed
 
     app = Flask(__name__)
 
@@ -115,7 +115,7 @@ that a request has been authenticated. For example::
 
 
     from flask import current_app
-    from flaskext.principal import Identity, identity_changed
+    from flask.ext.principal import Identity, identity_changed
 
     def login_view(req):
         username = req.form.get('username')
@@ -130,7 +130,7 @@ User information providers should connect to the `identity-loaded` signal to
 add any additional information to the Identity instance such as roles. For
 example::
 
-    from flaskext.principal import indentity_loaded, RoleNeed, UserNeed
+    from flask.ext.principal import indentity_loaded, RoleNeed, UserNeed
 
     @identity_loaded.connect_via(app)
     def on_identity_loaded(sender, identity):
@@ -185,47 +185,63 @@ API
 Starting the extension
 ----------------------
 
-.. autoclass:: flaskext.principal.Principal
+.. autoclass:: flask.ext.principal.Principal
     :members:
 
 
 Main Types
 ----------
 
-.. autoclass:: flaskext.principal.Permission
+.. autoclass:: flask.ext.principal.Identity
+    :members:
+
+.. autoclass:: flask.ext.principal.AnonymousIdentity
+    :members:
+
+.. autoclass:: flask.ext.principal.Permission
     :members:
     
-.. autoclass:: flaskext.principal.Denial
+.. autoclass:: flask.ext.principal.Denial
     :members:
 
-.. autoclass:: flaskext.principal.Identity
-    :members:
-
-.. autoclass:: flaskext.principal.AnonymousIdentity
-    :members:
-
-.. autoclass:: flaskext.principal.ResourceContext
+.. autoclass:: flask.ext.principal.ResourceContext
     :members:
 
 
+Permits
+-------
 
-Predefined Need Types
----------------------
+.. automodule:: flask.ext.principal.permits
 
-.. autoclass:: flaskext.principal.Need
+There are a few ``namedtuple`` based permits ready to be used:
 
-.. autoattribute:: flaskext.principal.RoleNeed
+.. autoclass:: flask.ext.principal.permits.Permit
 
-.. autoattribute:: flaskext.principal.UserNeed
+.. autoattribute:: flask.ext.principal.permits.UserPermit
 
-.. autoattribute:: flaskext.principal.ItemNeed
+.. autoattribute:: flask.ext.principal.permits.RolePermit
 
-Relevant Signals
-----------------
+.. autoattribute:: flask.ext.principal.permits.TypePermit
 
-.. autoattribute:: flaskext.principal.identity_changed
+.. autoclass:: flask.ext.principal.permits.RowPermit
 
-.. autoattribute:: flaskext.principal.identity_loaded
+It is also possible to use class based permits.
+
+.. autoclass:: flask.ext.principal.permits.BasePermit
+
+.. autoclass:: flask.ext.principal.permits.SimplePermit
+
+.. autoclass:: flask.ext.principal.permits.AuthTypePermit
+
+.. autoclass:: flask.ext.principal.permits.FunctionPermit
+
+
+Signals
+-------
+
+.. autoattribute:: flask.ext.principal.identity_changed
+
+.. autoattribute:: flask.ext.principal.identity_loaded
 
 
 Indices and tables
