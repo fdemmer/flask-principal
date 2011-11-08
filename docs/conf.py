@@ -26,7 +26,11 @@ sys.path.append(os.path.abspath('_themes'))
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.graphviz']
+extensions = [
+    'sphinx.ext.autodoc', 
+    'sphinx.ext.intersphinx', 
+    'sphinx.ext.graphviz', 
+]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -71,11 +75,11 @@ exclude_patterns = ['_build']
 #default_role = None
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
-#add_function_parentheses = True
+add_function_parentheses = True
 
 # If true, the current module name will be prepended to all description
 # unit titles (such as .. function::).
-add_module_names = True
+add_module_names = False
 
 # If true, sectionauthor and moduleauthor directives will be shown in the
 # output. They are ignored by default.
@@ -87,6 +91,16 @@ add_module_names = True
 # A list of ignored prefixes for module index sorting.
 #modindex_common_prefix = []
 
+autodoc_member_order = 'bysource'
+
+intersphinx_mapping = {
+    'http://docs.python.org/dev': None,
+    'http://werkzeug.pocoo.org/docs/': None,
+    'http://flask.pocoo.org/docs/': None,
+#    'http://www.sqlalchemy.org/docs/': None,
+#    'http://wtforms.simplecodes.com/docs/0.5/': None,
+#    'http://discorporate.us/projects/Blinker/docs/1.1/': None
+}
 
 # -- Options for HTML output ---------------------------------------------------
 
