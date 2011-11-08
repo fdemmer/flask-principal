@@ -321,7 +321,8 @@ class Permission(object):
         return p
 
     def union(self, other):
-        """Create a new permission with the requirements of the union of this
+        """
+		Create a new permission with the requirements of the union of this
         and other.
 
         You can also use the **&** operator. The following are equivalent::
@@ -336,7 +337,8 @@ class Permission(object):
         return p
 
     def difference(self, other):
-        """Create a new permission consisting of requirements in this 
+        """
+        Create a new permission consisting of requirements in this 
         permission and not in the other.
 
         You can also use the "|" operator. The following are equivalent::
