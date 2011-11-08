@@ -5,7 +5,7 @@ of permits and a ressource may require certain permits to allow access.
 For most simple tasks tuples are perfect as permits.
 
 Other applications may need more than that or you might just be more 
-comfortable working with class instances. The important part is, that permits 
+comfortable working with classes. The important part is, that permits 
 must be hashable and comparable. They must at least implement the ``__hash__`` 
 and ``__eq__`` functions.
 """

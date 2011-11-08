@@ -6,7 +6,7 @@ Flask Principal
 Introduction
 ============
 
-Flask-Principal provides a very loose framework to tie in providers of two
+Flask-Principal provides a loose framework to tie in providers of two
 types of service, often located in different parts of a web application:
 
     1. Authentication providers
@@ -16,17 +16,21 @@ For example, an authentication provider may be oauth, using Flask-OAuth and
 the user information may be stored in a relational database. Looseness of
 the framework is provided by using signals as the interface.
 
-The major components are the Identity, Needs, Permission, and the ResourceContext.
+The major components are the :class:`~flask.ext.principal.Identity`, 
+:class:`~flask.ext.principal.Permission` 
+(and :class:`~flask.ext.principal.permits.Permit`) and the
+:class:`~flask.ext.principal.ResourceContext`.
 
-    1. The Identity represents the user, and is stored/loaded from various
-       locations (eg session) for each request. The Identity is the user's
-       avatar to the system. It contains the access rights that the user has.
+    1. The :class:`~flask.ext.principal.Identity` represents the user, and is
+       stored/loaded from various locations (eg session) for each request. The
+       Identity is the user's avatar to the system. It contains the access
+       rights that the user has.
     
-    2. A Need is the smallest grain of access control, and represents a specific
-       parameter for the situation. For example "has the admin role", "can edit
-       blog posts".
+    2. A :class:`~flask.ext.principal.permits.Permit` is the smallest grain of
+       access control, and represents a specific parameter for the situation.
+       For example "has the admin role", "can edit blog posts".
     
-       Needs are any tuple, or probably could be object you like, but a tuple
+       Permits are any tuple, or probably could be object you like, but a tuple
        fits perfectly. The predesigned Need types (for saving your typing) are
        either pairs of (method, value) where method is used to specify
        common things such as `"role"`, `"user"`, etc. And the value is the
@@ -36,20 +40,20 @@ The major components are the Identity, Needs, Permission, and the ResourceContex
        as the triple `('article', 'edit', 46)`, where 46 is the key/ID for that
        row/object.
        
-       Essentially, how and what Needs are is very much down to the user, and is
+       Essentially, how and what Permits are is very much down to the user, and is
        designed loosely so that any effect can be achieved by using custom
-       instances as Needs.
+       instances as Permits.
 
        Whilst a Need is a permission to access a resource, an Identity should
-       provide a set of Needs that it has access to.
+       provide a set of Permits that it has access to.
 
-    2. A Permission is a set of requirements, any of which should be
+    2. A :class:`~flask.ext.principal.Permission` is a set of requirements, any of which should be
        present for access to a resource.
 
-    3. A Denial is a set of requirements, any of which may be present to deny
+    3. A :class:`~flask.ext.principal.Denial` is a set of requirements, any of which may be present to deny
        access to a resource.
        
-    4. An ResourceContext is the context of a certain identity against a certain
+    4. An :class:`~flask.ext.principal.ResourceContext` is the context of a certain identity against a certain
        Permission. It can be used as a context manager, or a decorator.
 
 
@@ -60,15 +64,14 @@ The major components are the Identity, Needs, Permission, and the ResourceContex
         rankdir="LR" ;
         node [ colorscheme="pastel19" ];
         fixedsize = "true" ;
-        i [label="Identity", shape="circle" style="filled" width="1.5", fillcolor="1"] ;
-        p [label="Permission", shape="circle" style="filled" width="1.5" fillcolor="2"] ;
-        n [label="<all> Needs|{<n1>RoleNeed|<n2>ActionNeed}", shape="Mrecord" style="filled" fillcolor="3"] ;
+        i [label="Identity", shape="circle" style="filled" width="1.2", fillcolor="1"] ;
+        p [label="Permission", shape="circle" style="filled" width="1.2" fillcolor="2"] ;
+        n [label="<all>Permits|{<n1>RolePermit|<n2>FunctionPermit|<n3>...}", shape="Mrecord" style="filled" fillcolor="3"] ;
         c [label="ResourceContext", shape="box" style="filled,rounded" fillcolor="4"] ;
-        p -> n:all ;
-        c -> i ;
-        c -> p ;
-        i -> n:n1 ;
-        i -> n:n2 ;
+        i -> c ;
+        p -> c ;
+        n:all -> p ;
+        n:all -> i ;
 
     }
 
@@ -85,17 +88,17 @@ restriction is easy to define as both a decorator and a context manager. A
 simple quickstart example is presented with commenting::
 
     from flask import Flask, Response
-    from flask.ext.principal import Principal, Permission, RoleNeed
+    from flask.ext.principal import Principal, Permission, RolePermit
 
     app = Flask(__name__)
 
     # load the extension
-    principals = Principal(app)
+    p = Principal(app)
 
-    # Create a permission with a single Need, in this case a RoleNeed.
-    admin_permission = Permission(RoleNeed('admin'))
+    # Create a permission with a single Permit, in this case a RolePermit.
+    admin_permission = Permission(RolePermit('admin'))
 
-    # protect a view with a principal for that need
+    # protect a view with a principal for that permit
     @app.route('/admin')
     @admin_permission.require()
     def do_admin_index():
@@ -130,7 +133,7 @@ User information providers should connect to the `identity-loaded` signal to
 add any additional information to the Identity instance such as roles. For
 example::
 
-    from flask.ext.principal import indentity_loaded, RoleNeed, UserNeed
+    from flask.ext.principal import indentity_loaded, RolePermit, UserPermit
 
     @identity_loaded.connect_via(app)
     def on_identity_loaded(sender, identity):
@@ -138,7 +141,7 @@ example::
         user = db.get(identity.name)
         # Update the roles that a user can provide
         for role in user.roles:
-            identity.provides.add(RoleNeed(role.name))
+            identity.provides.add(RolePermit(role.name))
 
 
 Object-level permissions
@@ -153,7 +156,8 @@ classes. For example, suppose you have a class::
             self.title = title
             self.author = author
 
-You want to provide edit permissions if the following conditions are true:
+You want to provide edit permissions if at least one of the following #
+conditions is true:
 
 - the current user is a moderator
 - the current user is the author of the blog post
@@ -162,9 +166,8 @@ The edit permission is provided as a property of **BlogPost**::
 
         @property
         def edit_permission(self):
-            return Permission(RoleNeed('moderator'),
-                              UserNeed(self.author.username))
-
+            return Permission(RolePermit('moderator'),
+                              UserPermit(self.author.username))
 
 The post can now be checked for edit permissions in your view::
 
@@ -181,8 +184,7 @@ neither the author nor a moderator.
 API
 ===
 
-
-Starting the extension
+Using the extension
 ----------------------
 
 .. autoclass:: flask.ext.principal.Principal
@@ -198,15 +200,17 @@ Main Types
 .. autoclass:: flask.ext.principal.AnonymousIdentity
     :members:
 
+.. autoclass:: flask.ext.principal.ResourceContext
+    :members: identity, can, __enter__
+
 .. autoclass:: flask.ext.principal.Permission
     :members:
     
 .. autoclass:: flask.ext.principal.Denial
     :members:
 
-.. autoclass:: flask.ext.principal.ResourceContext
-    :members:
 
+.. _permits:
 
 Permits
 -------

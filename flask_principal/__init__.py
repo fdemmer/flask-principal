@@ -129,7 +129,7 @@ class Identity(object):
     def add_permit(self, permit):
         """
         Add a permit to the identity. This is the same as adding them directly
-        by calling Identity.provides().
+        by calling :func:`Identity.provides`.
         """
         self.provides.add(permit)
 
@@ -144,8 +144,9 @@ class Identity(object):
 
 class AnonymousIdentity(Identity):
     """
-    The default :class:`Identity` when no other is available. Uses "anonymous" as uid
-    and all other fields using defaults from :class:`Identity`.
+    The default :class:`~flask.ext.principal.Identity` when no other is
+    available. Uses "anonymous" as uid and all other fields using defaults from
+    :class:`Identity`.
 
     :attr uid: `"anonymous"`
     :attr user: `None`
@@ -156,42 +157,43 @@ class AnonymousIdentity(Identity):
 
 class ResourceContext(object):
     """
-    The context for examining whether the :class:`Identity` has Permission to
-    whatever the ResourceContext is wrapped around.
+    The context for examining whether the identity has permission to
+    whatever the ResourceContext is protecting.
     
-    .. note:: The context is usually created by the
-              :func:`Permission.required()` method and can be used as a context
-              manager (``with`` statement) or a decorator.
+    .. note:: The context is usually created using 
+        the :func:`~flask.ext.principal.Permission.required` and not directly.
     
-    The permission is checked for provision in the :class:`Identity`, and if
-    available the flow is continued (context manager) or the function is
-    executed (decorator), otherwise an appropriate exception is raised.
-    """
+    The :class:`~flask.ext.principal.Permission` is checked for provision in the
+    :class:`Identity`, and if available the flow is continued (context manager)
+    or the function is executed (decorator), otherwise an appropriate exception
+    is raised.
 
+    Create a :class:`~flask.ext.principal.ResourceContext` with the given
+    :class:`~flask.ext.principal.Permission`.
+    
+    :attr permission: The :class:`~flask.ext.principal.Permission` required to
+                      access the resource.
+    :attr abort_with: A HTTP error code to use with :func:`~flask.abort` in case
+                      access is denied. This defaults to None. In that case a
+                      :exc:`PermissionDenied` exception is raised.
+    """
     def __init__(self, permission, abort_with=None):
-        """
-        Create a ResourceContext with the given Permission.
-        
-        :attr permission:   The permission required to access the resource.
-        :attr abort_with:   A HTTP error code to use with abort() in case
-                            access is denied.
-                            This defaults to None. In that case a
-                            PermissionDenied exception is raised.
-        """
         self.permission = permission
         self.abort_with = abort_with
 
     @property
     def identity(self):
         """
-        The :class:`Identity` in this context, as stored in the Flask global
-        ``g``.
+        The `identity` in this context, as stored in :obj:`~flask.g`.
         """
         return g.identity
 
     def can(self):
         """
-        Check if the :class:`Identity` provides the Permission.
+        Test wether the `identity` in this context fulfills the required the 
+        permission.
+
+        :returns: ``True`` or ``False``
         """
         return self.identity.can(self.permission)
 
@@ -210,7 +212,8 @@ class ResourceContext(object):
 
     def __enter__(self):
         """
-        The context guard returns the current :class:`Identity`::
+        When used as a context manager, the context guard also returns the
+        current `identity`::
         
             protected_resource = ResourceContext(Permission(('role', 'admin')))
             with protected_resource() as ident:
@@ -237,74 +240,159 @@ class ResourceContext(object):
 
 class Permission(object):
     """
-    A permission is a collection of permits, any of which must be allowed 
-    or must not be denied to access a resource. Use Permission and Denial 
-    to construct combinations.
+    A :class:`Permission` is a collection of :ref:`permits`, any of which
+    must be allowed or must not be denied to access a resource.
 
-    :param permits: The permits for this permission
+    Permits can be "postive" or "negative" and are stored in two sets:
+    :attr:`~flask.ext.principal.Permission.allow` and
+    :attr:`~flask.ext.principal.Permission.deny`.
+
+    :param permits: The "positive" permits for this permission
+
+    Within one :class:`Permission` all permits are chained with a logical
+    ``or``.
+
+    For example to make sure an `identity` has to be either the *owner* of an
+    object or be *related* to the owner of the object, you would create the
+    following permission::
+
+        # 1234 is the object's id
+        owner_or_related = Permission(
+            SimplePermit(key='owner', value='1234'), 
+            SimplePermit(key='relation', value='1234')
+        )
+
+        with owner_or_related.required():
+            # the identity has at least one of the two permits
+            pass
+
+    To require *both* permits, you have to create two separate permissions
+    and require them one by one.
+
+    .. Use :class:`Permission` and :class:`Denial` to construct combinations.
     """
     def __init__(self, *permits):
-        """
-        A set of permits, any of which must be present in an identity to have
-        access.
-        """
         self.permits = list(permits)
         self.excludes = list()
 
     @property
     def allow(self):
-        """A *set* of Permits, that are required to be allowed."""
+        """A *set* of permits, *any* of which are required to be allowed."""
         return set(self.permits)
 
     @property
     def deny(self):
         """
-        A *set* of Permits, that are required to be denied.
+        A *set* of permits, *any* of which are required to be denied.
         In other words, an identity may not have those to gain access.
         """
         return set(self.excludes)
 
     def __nonzero__(self):
-        """Equivalent to ``self.can()``.
+        """
+        Equivalent to ``self.can()``.
         """
         return bool(self.can())
 
     def __and__(self, other):
-        """Does the same thing as ``self.union(other)``
+        """
+        Does the same thing as ``self.union(other)``
         """
         return self.union(other)
     
     def __or__(self, other):
-        """Does the same thing as ``self.difference(other)``
+        """
+        Does the same thing as ``self.difference(other)``
         """
         return self.difference(other)
 
     def __contains__(self, other):
-        """Does the same thing as ``other.issubset(self)``.
+        """
+        Does the same thing as ``other.issubset(self)``.
         """
         return other.issubset(self)
 
     def required(self, *args, **kwargs):
         """
-        Create a ResourceContext from this Permission.
+        Create a :class:`~flask.ext.principal.ResourceContext` from this
+        :class:`Permission`, which can be used as decorator or context manager
+        to check permission and act accordingly.
 
-        See ResourceContext for valid arguments.
+        Accepts the same arguments as
+        :class:`~flask.ext.principal.ResourceContext`: a HTTP error code or
+        ``None`` to raise a :exc:`PermissionDenied` exception. Usually you
+        would use this function to generate the resource context and not use
+        :class:`ResourceContext` directly.
+
+        There is usually no need to store the returned resource context. It
+        should be used as returned from this function, eg::
+
+            # create permission
+            admin_permission = Permission(RolePermit('admin'))
+
+            # wrap view function in resource context
+            @admin_permission.required(403)
+            def view_admin():
+                pass
+
         """
         return ResourceContext(self, *args, **kwargs)
 
+    def allows(self, identity):
+        """
+        Test whether the `identity` is allowed, considering the permits
+        (:attr:`~flask.ext.principal.Permission.allow` and
+        :attr:`~flask.ext.principal.Permission.deny`) of this
+        :class:`Permission`.
+
+        This requires a request context, when using a
+        :class:`~flask.ext.principal.permits.FunctionPermit`.
+
+        :param identity: the :class:`Identity` instance to test.
+
+        :returns: ``True`` or ``False``
+
+        It is probably easiest to read an example to understand what this 
+        does and means::
+
+            # some identity with uid 1000
+            identity = Identity(1000)
+            # a permission requiring a role permit
+            permission = Permission(RolePermit('admin'))
+
+            # test wether the *permission* *allows* the *identity* access
+            if permission.allows(identity):
+                # yes, access granted!
+                pass
+            else:
+                # no, permission denied!
+                pass
+        """
+        if self.allow and not self.allow.intersection(identity.provides):
+            return False
+
+        if self.deny and self.deny.intersection(identity.provides):
+            return False
+
+        return True
+
     def test(self, *args, **kwargs):
         """
-        Checks if permission available and raises the relevant exception 
-        if not (eg. PermissionDenied). This is useful if you just want to 
-        check permission without wrapping everything in a with-required() 
-        block.
+        Checks if permission is allowed and raises :exc:`PermissionDenied` if
+        not. This is useful if you just want to check permission without
+        creating a resource context in a ``with ...required()`` block.
 
-        It still needs a request context though! The arguments are the 
-        same as with required() (and the ResourceContext constructor).
+        The arguments are the same as with :func:`Permission.required` (and the
+        :class:`ResourceContext` constructor).
 
-        This is equivalent::
+        This requires a request context, when using a :class:`FunctionPermit`.
+
+        :returns: ``True`` or ``False``
+
+        The following statements are equivalent::
 
             permission.test()
+            # or
             with permission.required():
                 pass
         """
@@ -316,21 +404,24 @@ class Permission(object):
         Returns reverse of current state (permits->excludes, excludes->permits) 
         """
         p = Permission()
-        p.permits = list(self.deny)
-        p.excludes = list(self.allow)
+        p.permits = self.excludes
+        p.excludes = self.permits
         return p
 
     def union(self, other):
         """
-		Create a new permission with the requirements of the union of this
+        Create a new permission with the requirements of the union of this
         and other.
+
+        This requires a request context, when using a :class:`FunctionPermit`.
 
         You can also use the **&** operator. The following are equivalent::
 
             p = p1.union(p2)
+            # or
             p = p1 & p2
 
-        :param other: The other permission
+        :param other: the other permission
         """
         p = Permission(*self.allow.union(other.allow))
         p.excludes = list(self.deny.union(other.deny))
@@ -341,9 +432,12 @@ class Permission(object):
         Create a new permission consisting of requirements in this 
         permission and not in the other.
 
+        This requires a request context, when using a :class:`FunctionPermit`.
+
         You can also use the "|" operator. The following are equivalent::
 
             p = p1.difference(p2)
+            # or
             p = p1 | p2
         """
         p = Permission(*self.allow.difference(other.allow))
@@ -351,33 +445,26 @@ class Permission(object):
         return p
 
     def issubset(self, other):
-        """Whether this permits are a subset of another
+        """
+        Test whether this permits are a subset of another.
+
+        This requires a request context, when using a :class:`FunctionPermit`.
 
         You can also use the **in** operator. The following are equivalent::
 
             assert p1.issubset(p2)
+            # or
             assert p1 in p2
 
-        :param other: The other permission
+        :param other: the other permission
         """
         return self.allow.issubset(other.allow) and \
             self.deny.issubset(other.deny)
 
-    def allows(self, identity):
-        """Whether the :class:`Identity` can access this Permission.
-
-        :param identity: The :class:`Identity` instance.
-        """
-        if self.allow and not self.allow.intersection(identity.provides):
-            return False
-
-        if self.deny and self.deny.intersection(identity.provides):
-            return False
-
-        return True
        
     def can(self):
-        """Whether the required context for this permission has access
+        """
+        Test whether the required context for this permission has access.
 
         This creates an :class:`ResourceContext` and tests whether it can access
         this permission
@@ -385,7 +472,8 @@ class Permission(object):
         You can also check the permission directly. The following are 
         equivalent::
 
-            assert permission.require().can()
+            assert permission.required().can()
+            # or
             assert permission
         """
         return self.required().can()
