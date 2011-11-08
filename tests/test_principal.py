@@ -363,13 +363,13 @@ def test_identity_user():
         response = client.open("/e")
         assert response.status_code == 200
         assert g.identity is not None
-        assert g.user is identity_users['ali']
+        assert g.identity.user is identity_users['ali']
 
     with client:
         response = client.open("/a")
         assert response.status_code == 200
         assert g.identity is not None
-        assert g.user is identity_users['ali']
+        assert g.identity.user is identity_users['ali']
 
 def test_set_identity_none():
     app = mkapp()
@@ -378,7 +378,7 @@ def test_set_identity_none():
         response = client.open("/e")
         assert response.status_code == 200
         assert g.identity is not None
-        assert g.user is identity_users['ali']
+        assert g.identity.user is identity_users['ali']
 
     client.open("/logout")
     raises(PermissionDenied, client.open, '/a')
@@ -389,7 +389,7 @@ def test_http_basic_loader_ok():
         response = client.open("/a", headers={'Authorization': ('Basic %s' % 'ali:ali'.encode('base64').strip())})
         assert response.status_code == 200
         assert g.identity is not None
-        assert g.user is identity_users['ali']
+        assert g.identity.user is identity_users['ali']
 
 def test_http_basic_loader_wrong():
     client = mkapp().test_client()
@@ -398,22 +398,22 @@ def test_http_basic_loader_wrong():
 def test_form_loader():
     client = mkapp().test_client()
     with client:
-        response = client.post("/login", data={'login': 'ali', 'password': 'ali'})
+        response = client.post("/login", data={'username': 'ali', 'password': 'ali'})
         assert response.status_code == 200
         assert g.identity is not None
-        assert g.user is identity_users['ali']
+        assert g.identity.user is identity_users['ali']
         assert 'ali' in response.data
 
 def test_form_loader_get_or_wrong():
     client = mkapp().test_client()
     raises(PermissionDenied, client.open, '/a', headers={'Authorization': ('Basic %s' % 'ali:foo'.encode('base64').strip())})
     with client:
-        response = client.open("/login", data={'login': 'ali', 'password': 'ali'})
+        response = client.open("/login", data={'username': 'ali', 'password': 'ali'})
         assert response.status_code == 200
         assert g.identity.uid == 'anonymous'
-        assert g.user is None
+        assert g.identity.user is None
 
-        response = client.post("/login", data={'login': 'ali', 'password': 'foo'})
+        response = client.post("/login", data={'username': 'ali', 'password': 'foo'})
         assert response.status_code == 200
         assert g.identity.uid == 'anonymous'
-        assert g.user is None
+        assert g.identity.user is None

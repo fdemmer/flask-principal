@@ -111,7 +111,6 @@ class Identity(object):
         self.uid = uid
         self.args = kwargs
         self.user = kwargs.get('user', None)
-        self.auth_type = kwargs.get('auth_type', None)
         
         self.provides = RoleSet()
         """
@@ -697,11 +696,12 @@ class Principal(object):
                 if request.path not in login_paths or request.method != 'POST':
                     return
 
-                login, password = request.form.get('login', u''), request.form.get('password', u'')
-                if not login:
+                username, password = request.form.get('username', u''), \
+                    request.form.get('password', u'')
+                if not username:
                     return
 
-                identity = create_identity(login, password)
+                identity = create_identity(username, password)
                 if identity:
                     identity.add_permit(AuthTypePermit('form'))
                 return identity
@@ -712,9 +712,8 @@ class Principal(object):
 
     def _set_thread_identity(self, identity):
         g.identity = identity
-        g.user = identity.user
-        identity_loaded.send(current_app._get_current_object(),
-                             identity=identity)
+        identity_loaded.send(current_app._get_current_object(), 
+            identity=identity)
 
     def _on_identity_changed(self, app, identity):
         self.set_identity(identity)
