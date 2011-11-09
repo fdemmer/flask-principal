@@ -34,6 +34,9 @@ TypePermit.__doc__ = """A permit with the key preset to "type"."""
 ActionPermit = partial(Permit, 'action')
 ActionPermit.__doc__ = """A permit with the key preset to "action"."""
 
+UserIdPermit = partial(Permit, 'uid')
+UserIdPermit.__doc__ = """A permit with the key preset to "uid"."""
+
 RowPermit = namedtuple('RowPermit', ['method', 'value', 'type'])
 """A RowPermit is again just a named tuple. In addition to the fields of 
 the other permits, there is a type, for example this could be specified as::
