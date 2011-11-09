@@ -37,6 +37,10 @@ ActionPermit.__doc__ = """A permit with the key preset to "action"."""
 UserIdPermit = partial(Permit, 'uid')
 UserIdPermit.__doc__ = """A permit with the key preset to "uid"."""
 
+AuthTypePermit = partial(Permit, 'auth_type')
+AuthTypePermit.__doc__ = """A permit with the key preset to "auth_type"."""
+
+
 RowPermit = namedtuple('RowPermit', ['method', 'value', 'type'])
 """A RowPermit is again just a named tuple. In addition to the fields of 
 the other permits, there is a type, for example this could be specified as::
@@ -124,29 +128,29 @@ class SimplePermit(BasePermit):
     """
     pass
 
-class AuthTypePermit(BasePermit):
-    """
-    A permit defining the type of authentication used (eg. "http-basic").
-    This permit is automatically added by the default authentication loaders.
-    If you implement your own authentication loader, be sure to do so too.
+#class AuthTypePermit(BasePermit):
+#    """
+#    A permit defining the type of authentication used (eg. "http-basic").
+#    This permit is automatically added by the default authentication loaders.
+#    If you implement your own authentication loader, be sure to do so too.
 
-    With that permit automatically set for all view functions , it is 
-    easy to implement views, that require a certain authentication method::
+#    With that permit automatically set for all view functions , it is 
+#    easy to implement views, that require a certain authentication method::
 
-        basic_auth = Permission(AuthTypePermit('http-basic'))
+#        basic_auth = Permission(AuthTypePermit('http-basic'))
 
-        @basic_auth.required(401)
-        def view_for_basic_auth_clients():
-            pass
-    """
-    def __init__(self, auth_type):
-        BasePermit.__init__(self, auth_type=auth_type)
-        #: A short text description of the authentication type used or required.
-        self.auth_type = auth_type
+#        @basic_auth.required(401)
+#        def view_for_basic_auth_clients():
+#            pass
+#    """
+#    def __init__(self, auth_type):
+#        BasePermit.__init__(self, auth_type=auth_type)
+#        #: A short text description of the authentication type used or required.
+#        self.auth_type = auth_type
 
-    def __repr__(self):
-        return "<%s(auth_type='%s')>" % \
-            (self.__class__.__name__, self.auth_type)
+#    def __repr__(self):
+#        return "<%s(auth_type='%s')>" % \
+#            (self.__class__.__name__, self.auth_type)
 
 class FunctionPermit(BasePermit):
     """
