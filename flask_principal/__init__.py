@@ -101,7 +101,7 @@ class Identity(object):
     Permits that are provided by this identity should be added using 
     add_permit() after loading.
     """
-    def __init__(self, uid, **kwargs):
+    def __init__(self, uid, auth_type=None, **kwargs):
         
         class RoleSet(set):
             def __call__(self, *args):
@@ -125,6 +125,8 @@ class Identity(object):
             permits.issubset(identity.provides)
             
         """
+        self.add_permit(UserIdPermit(uid))
+        self.add_permit(AuthTypePermit(auth_type))
 
     def add_permit(self, permit):
         """
@@ -151,8 +153,8 @@ class AnonymousIdentity(Identity):
     :attr uid: `"anonymous"`
     :attr user: `None`
     """
-    def __init__(self):
-        Identity.__init__(self, 'anonymous')
+    def __init__(self, auth_type=None):
+        Identity.__init__(self, 'anonymous', auth_type)
 
 
 class ResourceContext(object):
@@ -591,8 +593,6 @@ class Principal(object):
         If an identity is returned then it will be set as the current identity,
         otherwise Principal will continue looking for another identity.
 
-        The identity `auth_type` will be set to `"session"` if not already set.
-
         This also enables the session identity saver which will store the
         user identifier in the session cookie or remove the user identifier
         if an anonymous identity is loaded.
@@ -614,8 +614,6 @@ class Principal(object):
             if not uid:
                 return
             identity = create_identity(uid)
-            if identity:
-                identity.add_permit(AuthTypePermit('session'))
             return identity
 
         def remember_session(identity):
@@ -640,8 +638,6 @@ class Principal(object):
         If an identity is returned then it will be set as the current identity,
         otherwise Principal will continue looking for another identity.
 
-        The identity `auth_type` will be set to `"http-basic"` if not already set.
-
         For example::
 
             app = Flask(__name__)
@@ -657,8 +653,6 @@ class Principal(object):
         def authenticate_http_basic():
             if request.authorization:
                 identity = create_identity(**request.authorization)
-                if identity is not None:
-                    identity.add_permit(AuthTypePermit('http-basic'))
                 return identity
 
         self.identity_loader(authenticate_http_basic)
@@ -677,8 +671,6 @@ class Principal(object):
         The POST parameters are called `login` for the user login and `password`
         for the user password.
 
-        The identity `auth_type` will be set to `"form"` if not already set.
-
         For example::
 
             app = Flask(__name__)
@@ -693,7 +685,8 @@ class Principal(object):
         """
         def decorate(create_identity):
             def authenticate_form():
-                if request.path not in login_paths or request.method != 'POST':
+                if request.path not in login_paths or \
+                    request.method != 'POST':
                     return
 
                 username, password = request.form.get('username', u''), \
@@ -702,8 +695,6 @@ class Principal(object):
                     return
 
                 identity = create_identity(username, password)
-                if identity:
-                    identity.add_permit(AuthTypePermit('form'))
                 return identity
 
             self.identity_loader(authenticate_form)
