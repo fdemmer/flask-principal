@@ -125,7 +125,6 @@ class Identity(object):
             permits.issubset(identity.provides)
             
         """
-        self.add_permit(UserIdPermit(uid))
         self.add_permit(AuthTypePermit(auth_type))
 
     def add_permit(self, permit):
