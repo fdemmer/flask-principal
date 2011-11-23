@@ -538,7 +538,7 @@ class Principal(object):
             identity = AnonymousIdentity()
 
         if self.skip_static and \
-            request.path.startswith(current_app.static_path):
+            request.path.startswith(current_app.static_url_path):
             return
 
         self._set_thread_identity(identity)
@@ -710,7 +710,7 @@ class Principal(object):
 
     def _on_before_request(self):
         if self.skip_static and \
-            request.path.startswith(current_app.static_path):
+            request.path.startswith(current_app.static_url_path):
             return
         # loop through all registered loaders until...
         for loader in self.identity_loaders:
