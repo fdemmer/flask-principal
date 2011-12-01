@@ -1,4 +1,9 @@
 Flask Principal
+---------------
 
-Mini identity management.
+My original plan was to release a 0.3 version with various patches and forks merged incl a rewrite of the documentation, which i found a bit unclear.
+
+I started this mainly with the goal to understand and change the original 0.2 to fit my needs in a project. That project is still ongoing and requirements and use cases also for principal may change, so I might remove or add more stuff. An example are "Needs" (which I renamed to "Permit") that allow functions/lambdas as "key", at first I thought that I need that, now I am not so sure any more. Also I have not updated and added proper tests for all changes.
+
+Considering I renamed a lot of things, it might not be a good idea to just release a 0.3, as it would break a lot for 0.2 users. So I would not recommend using my fork directly for now. Better check if you need the features added in the forks I merged and use them or stay with the original 0.2. If you prefer to use my changes of course you could also fork mine...
 
