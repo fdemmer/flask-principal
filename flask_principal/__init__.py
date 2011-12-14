@@ -568,7 +568,7 @@ class BasicPrincipal(object):
             def load_identity_from_weird_usecase():
                 return Identity('ali')
         """
-        self.identity_loaders.appendleft(func)
+        self.identity_loaders.append(func)
         return func
 
     def identity_saver(self, func):
@@ -587,7 +587,7 @@ class BasicPrincipal(object):
             def save_identity_to_weird_usecase(identity):
                 my_special_cookie['identity'] = identity
         """
-        self.identity_savers.appendleft(func)
+        self.identity_savers.append(func)
         return func
 
     def _set_thread_identity(self, identity):
@@ -639,7 +639,7 @@ class Principal(BasicPrincipal):
 
             principals = Principal(app)
 
-            @principals.session_loader()
+            @principals.session_loader(uid_key='uid')
             def get_identity_by_uid(auth_type, uid):
                 user = model.User.query.get(uid)
                 if user:
@@ -698,10 +698,7 @@ class Principal(BasicPrincipal):
         
         Or::
         
-            # initialize permissions principal
-            p = Principal(app, skip_static=True)
-            # register basic auth with identity loader for api auth
-            p.http_basic_loader()(identity_loader)
+            principals.http_basic_loader()(identity_loader)
 
         """
         def decorate(create_identity):
