@@ -516,7 +516,7 @@ class Denial(Permission):
         self.permits = list()
 
 
-class Principal(object):
+class BasicPrincipal(object):
     """The Principal extension
     
     ... provides Identity loaders (and saver)
@@ -589,6 +589,31 @@ class Principal(object):
         """
         self.identity_savers.appendleft(func)
         return func
+
+    def _set_thread_identity(self, identity):
+        g.identity = identity
+        identity_loaded.send(current_app._get_current_object(), 
+            identity=identity)
+
+    def _on_identity_changed(self, app, identity):
+        self.set_identity(identity)
+
+    def _on_before_request(self):
+        if self.skip_static and \
+            request.path.startswith(current_app.static_url_path):
+            return
+        # loop through all registered loaders until...
+        for loader in self.identity_loaders:
+            identity = loader()
+            # one successfully loads an identity and ...
+            if identity is not None:
+                # set it!
+                self.set_identity(identity)
+                return
+        # otherwise set the fallback/anonymous identity
+        self.set_identity()
+
+class Principal(BasicPrincipal):
 
     def session_loader(self, uid_key='uid'):
         """Decorator to enable session identity loading and saving.
@@ -759,26 +784,3 @@ class Principal(object):
             return create_identity
 
         return decorate
-
-    def _set_thread_identity(self, identity):
-        g.identity = identity
-        identity_loaded.send(current_app._get_current_object(), 
-            identity=identity)
-
-    def _on_identity_changed(self, app, identity):
-        self.set_identity(identity)
-
-    def _on_before_request(self):
-        if self.skip_static and \
-            request.path.startswith(current_app.static_url_path):
-            return
-        # loop through all registered loaders until...
-        for loader in self.identity_loaders:
-            identity = loader()
-            # one successfully loads an identity and ...
-            if identity is not None:
-                # set it!
-                self.set_identity(identity)
-                return
-        # otherwise set the fallback/anonymous identity
-        self.set_identity()
