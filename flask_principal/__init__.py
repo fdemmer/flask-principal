@@ -22,6 +22,9 @@ from flask.signals import Namespace
 from permits import *
 #from loaders import *
 
+AUTH_TYPE_BASIC = 'http-basic'
+AUTH_TYPE_FORM = 'form-post'
+AUTH_TYPE_SESSION = 'cookie-session'
 
 signals = Namespace()
 """Namespace for principal's signals.
@@ -126,6 +129,10 @@ class Identity(object):
             
         """
         self.add_permit(AuthTypePermit(auth_type))
+
+    @property
+    def permits(self):
+        return self.provides
 
     def add_permit(self, permit):
         """
@@ -583,7 +590,7 @@ class Principal(object):
         self.identity_savers.appendleft(func)
         return func
 
-    def session_loader(self, create_identity):
+    def session_loader(self, uid_key='uid'):
         """Decorator to enable session identity loading and saving.
 
         The decorated function is called with an user identifier and should return
@@ -595,6 +602,11 @@ class Principal(object):
         This also enables the session identity saver which will store the
         user identifier in the session cookie or remove the user identifier
         if an anonymous identity is loaded.
+        
+        Combine this with eg. a form loader....
+
+        :param uid_key:     key used to read/write the uid in the session 
+                            (default: `uid`)
 
         For example::
 
@@ -602,31 +614,41 @@ class Principal(object):
 
             principals = Principal(app)
 
-            @principals.session_loader
-            def get_identity_by_uid(uid):
+            @principals.session_loader()
+            def get_identity_by_uid(auth_type, uid):
                 user = model.User.query.get(uid)
                 if user:
                     return Identity(user.id, user)
         """
-        def authenticate_session():
-            uid = session.get('uid')
-            if not uid:
-                return
-            identity = create_identity(uid)
-            return identity
+        def decorate(create_identity):
 
-        def remember_session(identity):
-            if not isinstance(identity, AnonymousIdentity):
-                session['uid'] = identity.uid
-            elif 'uid' in session:
-                del session['uid']
-            session.modified = True
+            def session_loader():
+                """call identity factory for uid in session"""
+                uid = session.get(uid_key)
+                if not uid:
+                    return
 
-        self.identity_loader(authenticate_session)
-        self.identity_saver(remember_session)
-        return create_identity
+                auth_type = AUTH_TYPE_SESSION
+                return create_identity(auth_type, uid)
 
-    def http_basic_loader(self, create_identity):
+            def session_saver(identity):
+                """save non-anonymous identity's uid in session"""
+                if not isinstance(identity, AnonymousIdentity):
+                    session[uid_key] = identity.uid
+                elif uid_key in session:
+                    del session[uid_key]
+                session.modified = True
+
+            # register loader
+            self.identity_loader(session_loader)
+            # register saver
+            self.identity_saver(session_saver)
+            # return decorated function unchanged
+            return create_identity
+
+        return decorate
+        
+    def http_basic_loader(self):
         """
         Decorator to enable HTTP Basic identity loading.
 
@@ -643,21 +665,37 @@ class Principal(object):
 
             principals = Principal(app)
 
-            @principals.http_basic_loader
-            def get_identity_by_credentials(username, password):
+            @principals.http_basic_loader()
+            def identity_loader(auth_type, username, password):
                 user = model.User.query.filter(model.User.username == username)
                 if user and user.validate_password(password):
                     return Identity(user.id, user)
+        
+        Or::
+        
+            # initialize permissions principal
+            p = Principal(app, skip_static=True)
+            # register basic auth with identity loader for api auth
+            p.http_basic_loader()(identity_loader)
+
         """
-        def authenticate_http_basic():
-            if request.authorization:
-                identity = create_identity(**request.authorization)
-                return identity
+        def decorate(create_identity):
 
-        self.identity_loader(authenticate_http_basic)
-        return create_identity
+            def http_basic_loader():
+                if request.authorization:
+                    auth_type = AUTH_TYPE_BASIC
+                    return create_identity(auth_type, **request.authorization)
 
-    def form_loader(self, login_paths=[]):
+            # register loader
+            self.identity_loader(http_basic_loader)
+            # http basic is session-less, so there is no saver
+            # return decorated function unchanged
+            return create_identity
+
+        return decorate
+
+    def form_loader(self, login_paths=[], 
+        username_key='username', password_key='password'):
         """Decorator to enable HTTP POST-style identity loading.
 
         The decorated function is called with the credentials posted at
@@ -667,8 +705,14 @@ class Principal(object):
         If an identity is returned then it will be set as the current identity,
         otherwise Principal will continue looking for another identity.
 
-        The POST parameters are called `login` for the user login and `password`
-        for the user password.
+        The POST parameters can be customized using `username_key` and `password_key`.
+        
+        :param login_paths: a list of paths used for form logins 
+                            (default: `[]`)
+        :param username_key: form field name used for the username 
+                            (default: `username`)
+        :param password_key: form field name used for the password 
+                            (default: `password`)
 
         For example::
 
@@ -677,27 +721,43 @@ class Principal(object):
             principals = Principal(app)
 
             @principals.form_loader(['/login', '/special/logon'])
-            def get_identity_by_credentials(username, password):
+            def identity_loader(auth_type, username, password):
                 user = model.User.query.filter(model.User.username == username)
                 if user and user.validate_password(password):
                     return Identity(user.id, user)
+
+        Or::
+        
+            principals.form_loader(['/form_login'], username_key='email')(identity_loader)
+            
         """
         def decorate(create_identity):
-            def authenticate_form():
-                if request.path not in login_paths or \
-                    request.method != 'POST':
+
+            def form_loader():
+                """call identity factory for posted form data"""
+                if request.method != 'POST':
+                    return
+                if request.path not in login_paths:
                     return
 
-                username, password = request.form.get('username', u''), \
-                    request.form.get('password', u'')
+                kwargs = request.form.to_dict()
+                username = ''.join(kwargs.get(username_key, ''))
+                del kwargs[username_key]
+                password = ''.join(kwargs.get(password_key, ''))
+                del kwargs[password_key]
                 if not username:
                     return
 
-                identity = create_identity(username, password)
-                return identity
+                auth_type = AUTH_TYPE_FORM
+                return create_identity(auth_type, username, password, **kwargs)
 
-            self.identity_loader(authenticate_form)
+            # register loader
+            self.identity_loader(form_loader)
+            # use the session_loader to store the uid of the identity 
+            # loaded with the form into the session
+            # return decorated function unchanged
             return create_identity
+
         return decorate
 
     def _set_thread_identity(self, identity):
